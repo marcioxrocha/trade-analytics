@@ -41,6 +41,27 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
     const memoizedChart = useMemo(() => {
         if (!card.data && card.type !== ChartType.SPACER) return null;
 
+        if (
+            [ChartType.BAR, ChartType.LINE, ChartType.AREA, ChartType.MULTI_LINE].includes(card.type) &&
+            !card.categoryKey
+        ) {
+            return <div className="text-center p-4 text-gray-500">{t('chartCard.selectCategory')}</div>;
+        }
+
+        if (
+            [ChartType.BAR, ChartType.LINE, ChartType.AREA, ChartType.KPI].includes(card.type) &&
+            !card.dataKey
+        ) {
+            return <div className="text-center p-4 text-gray-500">{t('chartCard.selectValue')}</div>;
+        }
+
+        if (
+            card.type === ChartType.MULTI_LINE &&
+            (!card.dataKeys || card.dataKeys.length === 0)
+        ) {
+            return <div className="text-center p-4 text-gray-500">{t('chartCard.selectValues')}</div>;
+        }
+
         let processedData = card.data || [];
 
         // For multi-line charts, aggregate data to ensure unique points on the x-axis.
@@ -249,35 +270,50 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
             </ResponsiveContainer>
             );
         case ChartType.KPI:
-            if (!card.data) return null;
-            const rawValue = card.data[0]?.[card.dataKey];
+            if (!card.data || card.data.length === 0) return null;
+            const firstRow = card.data[0];
+            let rawValue: any;
+
+            if (firstRow && card.dataKey) {
+                // Find the key in the first row that matches the dataKey, case-insensitively.
+                // This makes the component resilient to case differences between query results (e.g., 'SALDO')
+                // and the configuration (e.g., 'saldo').
+                const actualKey = Object.keys(firstRow).find(key => key.toLowerCase() === card.dataKey.toLowerCase());
+                if (actualKey) {
+                    rawValue = firstRow[actualKey];
+                }
+            }
+
             let formattedValue = 'N/A';
             let kpiColorClass = 'text-gray-800 dark:text-white'; // Default color
 
-            if (typeof rawValue === 'number') {
-                const columnType = card.columnTypes?.[card.dataKey];
+            // Now, handle the value we found
+            if (rawValue !== undefined && rawValue !== null) {
+                // Find the column type using the same case-insensitive logic, matching the configured key
+                const actualColumnTypeKey = card.columnTypes && card.dataKey ? Object.keys(card.columnTypes).find(key => key.toLowerCase() === card.dataKey.toLowerCase()) : undefined;
+                const columnType = actualColumnTypeKey ? card.columnTypes[actualColumnTypeKey] : undefined;
+                
                 formattedValue = formatValue(rawValue, columnType, formattingSettings);
 
-                if (card.kpiConfig?.format === 'percent') {
-                    formattedValue = `${formattedValue}%`;
-                }
+                // If it's a number, apply additional formatting and color
+                if (typeof rawValue === 'number') {
+                    if (card.kpiConfig?.format === 'percent') {
+                        formattedValue = `${formattedValue}%`;
+                    }
 
-                // Set color based on value
-                if (rawValue > 0) {
-                    kpiColorClass = 'text-green-600 dark:text-green-500';
-                } else if (rawValue < 0) {
-                    kpiColorClass = 'text-red-600 dark:text-red-500';
+                    // Set color based on value
+                    if (rawValue > 0) {
+                        kpiColorClass = 'text-green-600 dark:text-green-500';
+                    } else if (rawValue < 0) {
+                        kpiColorClass = 'text-red-600 dark:text-red-500';
+                    }
                 }
-
-            } else if (rawValue !== undefined && rawValue !== null) {
-                const columnType = card.columnTypes?.[card.dataKey];
-                formattedValue = formatValue(rawValue, columnType, formattingSettings);
             }
 
             return (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-                <h3 className={`text-4xl md:text-5xl font-bold ${kpiColorClass}`}>{formattedValue}</h3>
-            </div>
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                    <h3 className={`text-4xl md:text-5xl font-bold ${kpiColorClass}`}>{formattedValue}</h3>
+                </div>
             );
         case ChartType.TABLE:
             if (!card.data || card.data.length === 0) return <div className="text-center p-4">No data to display.</div>;

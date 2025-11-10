@@ -101,6 +101,48 @@ const highlightSupabase = (query: string): string => {
 };
 
 
+// --- JavaScript Highlighter ---
+const JS_KEYWORDS = [
+  'const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'switch', 'case', 'break', 'continue', 'try', 'catch', 'finally', 'throw', 'new', 'import', 'export', 'from', 'await', 'async', 'of', 'in', 'do', 'class', 'extends', 'super', 'this', 'true', 'false', 'null', 'undefined'
+];
+const JS_BUILTINS = [
+    'console', 'JSON', 'Math', 'Date', 'Array', 'Object', 'String', 'Number', 'Boolean'
+];
+
+const highlightJS = (code: string): string => {
+  const regex = new RegExp(
+    `(\\b(?:${JS_KEYWORDS.join('|')})\\b)|` + // Group 1: Keywords
+    `(\\b(?:${JS_BUILTINS.join('|')})\\b)|` +   // Group 2: Built-ins
+    `('[^']*'|"[^"]*"|\`[^\`]*\`)|` +          // Group 3: Strings
+    `(\\/\\/.*|\\/\\*[\\s\\S]*?\\*\\/)|` +     // Group 4: Comments
+    `(\\b\\d+(?:\\.\\d+)?\\b)`,               // Group 5: Numbers
+    'g'
+  );
+
+  return code.replace(regex, (match, keyword, builtin, string, comment, number) => {
+    if (keyword) {
+      if (['true', 'false', 'null', 'undefined'].includes(keyword)) {
+        return `<span class="text-purple-400 font-bold">${keyword}</span>`;
+      }
+      return `<span class="text-indigo-400 font-bold">${keyword}</span>`;
+    }
+    if (builtin) {
+      return `<span class="text-teal-400">${builtin}</span>`;
+    }
+    if (string) {
+      return `<span class="text-green-400">${string}</span>`;
+    }
+    if (comment) {
+      return `<span class="text-gray-500 italic">${comment}</span>`;
+    }
+    if (number) {
+        return `<span class="text-orange-400">${number}</span>`;
+    }
+    return match; // Fallback
+  });
+};
+
+
 /**
  * Applies syntax highlighting to a query string by wrapping tokens in styled spans,
  * selecting the appropriate highlighter based on the language.
@@ -108,7 +150,7 @@ const highlightSupabase = (query: string): string => {
  * @param lang The query language ('sql', 'mongo', 'redis').
  * @returns An HTML string with syntax highlighting.
  */
-export const highlight = (query: string, lang: QueryLanguage): string => {
+export const highlight = (query: string, lang: QueryLanguage | 'javascript'): string => {
   const escapedQuery = query
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -123,6 +165,8 @@ export const highlight = (query: string, lang: QueryLanguage): string => {
         return highlightRedis(escapedQuery);
     case 'supabase':
         return highlightSupabase(escapedQuery);
+    case 'javascript':
+        return highlightJS(escapedQuery);
     default:
       return escapedQuery; // No highlighting for unknown languages
   }

@@ -1,3 +1,4 @@
+
 {
   "sidebar": {
     "title": "Analytics Builder",
@@ -112,7 +113,10 @@
     "cloneCardLabel": "Clone Card",
     "unsupported": "Unsupported chart type",
     "spacerTitle": "Spacer",
-    "spacerDescription": "An empty card for layout organization."
+    "spacerDescription": "An empty card for layout organization.",
+    "selectCategory": "Please select a Category (X-Axis) to display this chart.",
+    "selectValue": "Please select a Value (Y-Axis / Metric) to display this chart.",
+    "selectValues": "Please select at least one Value (Y-Axis / Metric) to display this chart."
   },
   "queryEditor": {
     "title": "Query Editor",
@@ -159,6 +163,7 @@
     "aiGeneratingButton": "Generating...",
     "aiUseQueryButton": "Use This Query",
     "aiError": "An error occurred while generating the query. Please check your connection or try again.",
+    "selectAxisPlaceholder": "Select a column...",
     "postProcessing": {
       "enable": "Enable Post-Processing",
       "title": "Post-Processing (JavaScript)",

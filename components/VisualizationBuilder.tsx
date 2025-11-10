@@ -63,8 +63,8 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
       setVizTitle(initialConfig.title);
       setVizDescription(initialConfig.description || '');
       setVizType(initialConfig.type);
-      setVizCategoryKey(initialConfig.categoryKey);
-      setVizDataKey(initialConfig.dataKey);
+      setVizCategoryKey(initialConfig.categoryKey || '');
+      setVizDataKey(initialConfig.dataKey || '');
       setVizDataKeys(initialConfig.dataKeys || []);
       setVizGridSpan(initialConfig.gridSpan);
       setVizGridRowSpan(initialConfig.gridRowSpan || (initialConfig.type === ChartType.KPI ? 1 : 2));
@@ -258,7 +258,8 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
                 <div>
                     <label className="block text-sm font-medium">{t('queryEditor.valueY')}</label>
                     <select value={vizDataKey} onChange={e => setVizDataKey(e.target.value)} disabled={columns.length === 0} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                    {columns.map(col => <option key={col} value={col}>{col}</option>)}
+                        <option value="">{t('queryEditor.selectAxisPlaceholder')}</option>
+                        {columns.map(col => <option key={col} value={col}>{col}</option>)}
                     </select>
                 </div>
                  <div>
@@ -277,12 +278,14 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
                 <div>
                   <label className="block text-sm font-medium">{t('queryEditor.categoryX')}</label>
                   <select value={vizCategoryKey} onChange={e => setVizCategoryKey(e.target.value)} disabled={columns.length === 0} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">{t('queryEditor.selectAxisPlaceholder')}</option>
                     {columns.map(col => <option key={col} value={col}>{col}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium">{t('queryEditor.valueY')}</label>
                   <select value={vizDataKey} onChange={e => setVizDataKey(e.target.value)} disabled={columns.length === 0} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">{t('queryEditor.selectAxisPlaceholder')}</option>
                     {columns.map(col => <option key={col} value={col}>{col}</option>)}
                   </select>
                 </div>
@@ -295,6 +298,7 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
                     <div>
                         <label className="block text-sm font-medium">{t('queryEditor.categoryX')}</label>
                         <select value={vizCategoryKey} onChange={e => setVizCategoryKey(e.target.value)} disabled={columns.length === 0} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <option value="">{t('queryEditor.selectAxisPlaceholder')}</option>
                             {columns.map(col => <option key={col} value={col}>{col}</option>)}
                         </select>
                     </div>

@@ -103,6 +103,8 @@ const QueryEditorView: React.FC<QueryEditorViewProps> = ({ editingCardId, onFini
     
     const editorRef = useRef<HTMLTextAreaElement>(null);
     const backdropRef = useRef<HTMLPreElement>(null);
+    const postProcessingEditorRef = useRef<HTMLTextAreaElement>(null);
+    const postProcessingBackdropRef = useRef<HTMLPreElement>(null);
 
     const activeDashboard = useMemo(() => dashboards.find(d => d.id === activeDashboardId), [dashboards, activeDashboardId]);
 
@@ -297,6 +299,13 @@ const QueryEditorView: React.FC<QueryEditorViewProps> = ({ editingCardId, onFini
         }
     };
 
+    const handlePostProcessingScroll = () => {
+        if (postProcessingBackdropRef.current && postProcessingEditorRef.current) {
+            postProcessingBackdropRef.current.scrollTop = postProcessingEditorRef.current.scrollTop;
+            postProcessingBackdropRef.current.scrollLeft = postProcessingEditorRef.current.scrollLeft;
+        }
+    };
+
     const handleInsertVariable = (variableName: string) => {
         if (!editorRef.current) return;
         const { selectionStart, selectionEnd, value } = editorRef.current;
@@ -316,6 +325,7 @@ const QueryEditorView: React.FC<QueryEditorViewProps> = ({ editingCardId, onFini
 
 
     const highlightedQuery = useMemo(() => highlight(query, queryLanguage), [query, queryLanguage]);
+    const highlightedPostProcessingScript = useMemo(() => highlight(postProcessingScript, 'javascript'), [postProcessingScript]);
     
     // Auto-apply post-processing script with a debounce
     useEffect(() => {
@@ -571,12 +581,25 @@ Only return the SQL query, with no other text, explanation, or markdown formatti
                                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 mb-6">
                                     <h3 className="text-lg font-bold">{t('queryEditor.postProcessing.title')}</h3>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-3" dangerouslySetInnerHTML={{ __html: t('queryEditor.postProcessing.description') }}/>
-                                    <textarea
-                                        value={postProcessingScript}
-                                        onChange={(e) => setPostProcessingScript(e.target.value)}
-                                        className="w-full h-32 font-mono text-sm bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
-                                        placeholder="console.log(data); return data;"
-                                    />
+                                    <div className="relative">
+                                        <pre 
+                                            ref={postProcessingBackdropRef}
+                                            className="w-full h-32 m-0 p-2 font-mono text-sm bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md overflow-auto whitespace-pre-wrap break-words"
+                                            aria-hidden="true"
+                                        >
+                                            <code dangerouslySetInnerHTML={{ __html: highlightedPostProcessingScript + '\n' }} />
+                                        </pre>
+                                        <textarea
+                                            ref={postProcessingEditorRef}
+                                            value={postProcessingScript}
+                                            onChange={(e) => setPostProcessingScript(e.target.value)}
+                                            onScroll={handlePostProcessingScroll}
+                                            className="absolute top-0 left-0 w-full h-32 m-0 p-2 font-mono text-sm text-transparent bg-transparent border border-transparent rounded-md caret-white focus:outline-none resize-none"
+                                            placeholder="console.log(data); return data;"
+                                            spellCheck="false"
+                                            aria-label="Post-processing script editor"
+                                        />
+                                    </div>
                                     {processingError && (
                                         <div className="mt-2 bg-red-100 dark:bg-red-900/50 border-l-4 border-red-500 text-red-700 dark:text-red-200 p-3 rounded-md">
                                             <ErrorDisplay error={processingError} />

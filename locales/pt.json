@@ -1,3 +1,4 @@
+
 {
   "sidebar": {
     "title": "Analytics Builder",
@@ -112,7 +113,10 @@
     "cloneCardLabel": "Clonar Cartão",
     "unsupported": "Tipo de gráfico não suportado",
     "spacerTitle": "Espaçador",
-    "spacerDescription": "Um cartão vazio para organização do layout."
+    "spacerDescription": "Um cartão vazio para organização do layout.",
+    "selectCategory": "Por favor, selecione uma Categoria (Eixo X) para exibir este gráfico.",
+    "selectValue": "Por favor, selecione um Valor (Eixo Y / Métrica) para exibir este gráfico.",
+    "selectValues": "Por favor, selecione pelo menos um Valor (Eixo Y / Métrica) para exibir este gráfico."
   },
   "queryEditor": {
     "title": "Editor de Consulta",
@@ -159,6 +163,7 @@
     "aiGeneratingButton": "Gerando...",
     "aiUseQueryButton": "Usar Esta Consulta",
     "aiError": "Ocorreu um erro ao gerar a consulta. Verifique sua conexão ou tente novamente.",
+    "selectAxisPlaceholder": "Selecione uma coluna...",
     "postProcessing": {
       "enable": "Habilitar Pós-processamento",
       "title": "Pós-processamento (JavaScript)",
