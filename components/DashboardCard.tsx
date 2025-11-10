@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { ChartCardData, QueryResult, Variable } from '../types';
+import { ChartCardData, QueryResult, Variable, ChartType } from '../types';
 import { getDriver } from '../drivers/driverFactory';
 import { useAppContext } from '../contexts/AppContext';
 import ChartCard from './ChartCard';
@@ -128,6 +129,12 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
 
     if (isAppLoading) {
       return;
+    }
+    
+    // Do not attempt to fetch data for spacer cards.
+    if (cardConfig.type === ChartType.SPACER) {
+        setIsLoading(false);
+        return;
     }
     
     fetchData();

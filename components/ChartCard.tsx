@@ -27,6 +27,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
     const { whiteLabelSettings } = useAppContext();
     const brandColor = whiteLabelSettings?.brandColor || DEFAULT_BRAND_COLOR;
     const [highlightedDataKeys, setHighlightedDataKeys] = useState<string[]>([]);
+    const isSpacer = card.type === ChartType.SPACER;
 
     const handleLegendClick = (data: any) => {
         const { dataKey } = data;
@@ -38,7 +39,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
     };
 
     const memoizedChart = useMemo(() => {
-        if (!card.data) return null;
+        if (!card.data && card.type !== ChartType.SPACER) return null;
 
         let processedData = card.data || [];
 
@@ -248,6 +249,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
             </ResponsiveContainer>
             );
         case ChartType.KPI:
+            if (!card.data) return null;
             const rawValue = card.data[0]?.[card.dataKey];
             let formattedValue = 'N/A';
             if (typeof rawValue === 'number') {
@@ -293,6 +295,8 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
                     </table>
                 </div>
             );
+        case ChartType.SPACER:
+            return null;
         default:
             return <div>{t('chartCard.unsupported')}</div>;
         }
@@ -324,37 +328,43 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
     return memoizedChart;
   };
 
+  const containerClasses = isSpacer
+    ? "flex flex-col relative group w-full flex-grow h-full rounded-xl border-2 border-dashed border-transparent group-hover:border-gray-400 dark:group-hover:border-gray-600 transition-colors"
+    : "bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300 flex flex-col relative group w-full flex-grow";
+
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300 flex flex-col relative group w-full flex-grow">
-        <div className="flex justify-between items-start">
-            <div className="mb-2 pr-16">
-                <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200" dangerouslySetInnerHTML={{ __html: cardTitle }} />
-                {card.description && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1" dangerouslySetInnerHTML={{ __html: card.description }} />
-                )}
+    <div className={containerClasses}>
+        {!isSpacer && (
+            <div className="flex justify-between items-start">
+                <div className="mb-2 pr-16">
+                    <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200" dangerouslySetInnerHTML={{ __html: cardTitle }} />
+                    {card.description && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1" dangerouslySetInnerHTML={{ __html: card.description }} />
+                    )}
+                </div>
             </div>
-            <div className="absolute top-3 right-3 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {onExport && card.type !== ChartType.KPI && !error && !isLoading && (
-                  <button onClick={onExport} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 hover:text-white" aria-label={t('chartCard.exportCsvLabel')}>
-                      <Icon name="export" className="w-4 h-4" />
-                  </button>
-                )}
-                {onClone && (
-                    <button onClick={() => onClone(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-green-500 hover:text-white" aria-label={t('chartCard.cloneCardLabel')}>
-                        <Icon name="save_as" className="w-4 h-4" />
-                    </button>
-                )}
-                {onEdit && (
-                    <button onClick={() => onEdit(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-yellow-500 hover:text-white" aria-label={t('chartCard.editCardLabel')}>
-                        <Icon name="edit" className="w-4 h-4" />
-                    </button>
-                )}
-                {onRemove && (
-                    <button onClick={() => onRemove(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-red-500 hover:text-white" aria-label={t('chartCard.removeCardLabel')}>
-                        <Icon name="close" className="w-4 h-4" />
-                    </button>
-                )}
-            </div>
+        )}
+        <div className="absolute top-3 right-3 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+            {onExport && card.type !== ChartType.KPI && !error && !isLoading && !isSpacer && (
+              <button onClick={onExport} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 hover:text-white" aria-label={t('chartCard.exportCsvLabel')}>
+                  <Icon name="export" className="w-4 h-4" />
+              </button>
+            )}
+            {onClone && (
+                <button onClick={() => onClone(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-green-500 hover:text-white" aria-label={t('chartCard.cloneCardLabel')}>
+                    <Icon name="save_as" className="w-4 h-4" />
+                </button>
+            )}
+            {onEdit && (
+                <button onClick={() => onEdit(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-yellow-500 hover:text-white" aria-label={t('chartCard.editCardLabel')}>
+                    <Icon name="edit" className="w-4 h-4" />
+                </button>
+            )}
+            {onRemove && (
+                <button onClick={() => onRemove(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-red-500 hover:text-white" aria-label={t('chartCard.removeCardLabel')}>
+                    <Icon name="close" className="w-4 h-4" />
+                </button>
+            )}
         </div>
       <div className="flex-grow flex items-center justify-center min-h-0 relative z-10">
         {renderContent()}

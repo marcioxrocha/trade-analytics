@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChartCardData, ChartType, QueryResult, ColumnDataType, QueryLanguage } from '../types';
 import Icon from './Icon';
@@ -39,6 +40,7 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
   const [vizGridSpan, setVizGridSpan] = useState(2);
   const [vizGridRowSpan, setVizGridRowSpan] = useState(2);
   const [vizKpiFormat, setVizKpiFormat] = useState<'number' | 'percent'>('number');
+  const isSpacer = vizType === ChartType.SPACER;
 
   const columns = useMemo(() => {
     if (result?.columns) {
@@ -99,7 +101,7 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
     }
 
     setVizGridRowSpan(vizType === ChartType.KPI ? 1 : 2);
-    setVizGridSpan(vizType === ChartType.KPI ? 1 : 2);
+    setVizGridSpan(vizType === ChartType.KPI ? 1 : (vizType === ChartType.SPACER ? 1 : 2));
 
     if (columns.length > 0) {
       const isGraphicalChart = [ChartType.BAR, ChartType.LINE, ChartType.AREA, ChartType.MULTI_LINE].includes(vizType);
@@ -128,17 +130,24 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
   // Do not include state setters like vizCategoryKey, vizDataKey, vizDataKeys in dependencies.
   }, [vizType, columns, initialConfig]);
 
+   useEffect(() => {
+    if (isSpacer) {
+      setVizTitle(t('chartCard.spacerTitle'));
+      setVizDescription(t('chartCard.spacerDescription'));
+    }
+  }, [isSpacer, t]);
+
 
   const previewCardData: ChartCardData | null = useMemo(() => {
-    if (!result || result.rows.length === 0 || !activeDashboardId) return null;
+    if (!activeDashboardId || (!result && !isSpacer)) return null;
 
-    const transformedData = result.rows.map(row => {
+    const transformedData = result?.rows.map(row => {
       const obj: { [key: string]: any } = {};
       result.columns.forEach((col, index) => {
         obj[col] = row[index];
       });
       return obj;
-    });
+    }) || [];
 
     const isMulti = vizType === ChartType.MULTI_LINE;
 
@@ -148,19 +157,19 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
       title: vizTitle,
       description: vizDescription,
       type: vizType,
-      data: transformedData,
-      query: currentQuery,
-      queryLanguage: currentQueryLanguage,
-      dataSourceId: currentDataSourceId,
+      data: isSpacer ? [] : transformedData,
+      query: isSpacer ? '' : currentQuery,
+      queryLanguage: isSpacer ? 'sql' : currentQueryLanguage,
+      dataSourceId: isSpacer ? '' : currentDataSourceId,
       columnTypes,
-      dataKey: isMulti ? (vizDataKeys[0] || '') : vizDataKey,
+      dataKey: isSpacer ? '' : (isMulti ? (vizDataKeys[0] || '') : vizDataKey),
       dataKeys: isMulti ? vizDataKeys : undefined,
-      categoryKey: vizCategoryKey,
+      categoryKey: isSpacer ? '' : vizCategoryKey,
       gridSpan: vizGridSpan,
       gridRowSpan: vizGridRowSpan,
       kpiConfig: vizType === ChartType.KPI ? { format: vizKpiFormat } : undefined,
     };
-  }, [result, vizTitle, vizDescription, vizType, vizDataKey, vizDataKeys, vizCategoryKey, currentQuery, currentDataSourceId, vizGridSpan, vizGridRowSpan, vizKpiFormat, activeDashboardId, columnTypes, currentQueryLanguage]);
+  }, [result, vizTitle, vizDescription, vizType, vizDataKey, vizDataKeys, vizCategoryKey, currentQuery, currentDataSourceId, vizGridSpan, vizGridRowSpan, vizKpiFormat, activeDashboardId, columnTypes, currentQueryLanguage, isSpacer]);
 
   useEffect(() => {
     onPreviewChange(previewCardData);
@@ -190,15 +199,15 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
     const isMulti = vizType === ChartType.MULTI_LINE;
     const cardConfig: Omit<ChartCardData, 'id' | 'dashboardId'> = {
       title: vizTitle,
-      description: vizDescription.trim() || undefined,
+      description: isSpacer ? t('chartCard.spacerDescription') : (vizDescription.trim() || undefined),
       type: vizType,
-      query: currentQuery,
-      queryLanguage: currentQueryLanguage,
-      dataSourceId: currentDataSourceId,
-      columnTypes: columnTypes,
-      dataKey: isMulti ? (vizDataKeys[0] || '') : vizDataKey,
+      query: isSpacer ? '' : currentQuery,
+      queryLanguage: isSpacer ? 'sql' : currentQueryLanguage,
+      dataSourceId: isSpacer ? '' : currentDataSourceId,
+      columnTypes: isSpacer ? {} : columnTypes,
+      dataKey: isSpacer ? '' : (isMulti ? (vizDataKeys[0] || '') : vizDataKey),
       dataKeys: isMulti ? vizDataKeys : undefined,
-      categoryKey: vizCategoryKey,
+      categoryKey: isSpacer ? '' : vizCategoryKey,
       gridSpan: vizGridSpan,
       gridRowSpan: vizGridRowSpan,
       kpiConfig: vizType === ChartType.KPI ? { format: vizKpiFormat } : undefined,
@@ -216,19 +225,6 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
       <h2 className="text-xl font-bold mb-4">{t('queryEditor.createVisualization')}</h2>
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium">{t('queryEditor.vizTitle')}</label>
-          <input type="text" value={vizTitle} onChange={e => setVizTitle(e.target.value)} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">{t('queryEditor.vizDescription')}</label>
-          <textarea
-            value={vizDescription}
-            onChange={(e) => setVizDescription(e.target.value)}
-            className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 h-20 resize-none"
-            placeholder={t('queryEditor.vizDescriptionPlaceholder')}
-          />
-        </div>
-        <div>
           <label className="block text-sm font-medium">{t('queryEditor.chartType')}</label>
           <select value={vizType} onChange={e => setVizType(e.target.value as ChartType)} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
             <option value={ChartType.TABLE}>{t('queryEditor.table')}</option>
@@ -237,73 +233,92 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
             <option value={ChartType.MULTI_LINE}>{t('queryEditor.multiLineChart')}</option>
             <option value={ChartType.AREA}>{t('queryEditor.areaChart')}</option>
             <option value={ChartType.KPI}>{t('queryEditor.kpi')}</option>
+            <option value={ChartType.SPACER}>{t('queryEditor.spacer')}</option>
           </select>
         </div>
 
-        {vizType === ChartType.KPI && (
+        {!isSpacer && (
           <>
             <div>
-                <label className="block text-sm font-medium">{t('queryEditor.valueY')}</label>
-                <select value={vizDataKey} onChange={e => setVizDataKey(e.target.value)} disabled={columns.length === 0} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                {columns.map(col => <option key={col} value={col}>{col}</option>)}
-                </select>
+              <label className="block text-sm font-medium">{t('queryEditor.vizTitle')}</label>
+              <input type="text" value={vizTitle} onChange={e => setVizTitle(e.target.value)} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600" />
             </div>
-             <div>
-                <label className="block text-sm font-medium">{t('queryEditor.format')}</label>
-                <select value={vizKpiFormat} onChange={e => setVizKpiFormat(e.target.value as any)} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
-                   <option value="number">{t('queryEditor.number')}</option>
-                   <option value="percent">{t('queryEditor.percentage')}</option>
-                </select>
+            <div>
+              <label className="block text-sm font-medium">{t('queryEditor.vizDescription')}</label>
+              <textarea
+                value={vizDescription}
+                onChange={(e) => setVizDescription(e.target.value)}
+                className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 h-20 resize-none"
+                placeholder={t('queryEditor.vizDescriptionPlaceholder')}
+              />
             </div>
-            {columns.length === 0 && isEditing && <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t('queryEditor.runQueryToEditColumns')}</p>}
-          </>
-        )}
 
-        {[ChartType.BAR, ChartType.LINE, ChartType.AREA].includes(vizType) && (
-          <>
-            <div>
-              <label className="block text-sm font-medium">{t('queryEditor.categoryX')}</label>
-              <select value={vizCategoryKey} onChange={e => setVizCategoryKey(e.target.value)} disabled={columns.length === 0} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                {columns.map(col => <option key={col} value={col}>{col}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium">{t('queryEditor.valueY')}</label>
-              <select value={vizDataKey} onChange={e => setVizDataKey(e.target.value)} disabled={columns.length === 0} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                {columns.map(col => <option key={col} value={col}>{col}</option>)}
-              </select>
-            </div>
-            {columns.length === 0 && isEditing && <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t('queryEditor.runQueryToEditColumns')}</p>}
-          </>
-        )}
-        
-        {vizType === ChartType.MULTI_LINE && (
-            <>
+            {vizType === ChartType.KPI && (
+              <>
                 <div>
-                    <label className="block text-sm font-medium">{t('queryEditor.categoryX')}</label>
-                    <select value={vizCategoryKey} onChange={e => setVizCategoryKey(e.target.value)} disabled={columns.length === 0} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                        {columns.map(col => <option key={col} value={col}>{col}</option>)}
+                    <label className="block text-sm font-medium">{t('queryEditor.valueY')}</label>
+                    <select value={vizDataKey} onChange={e => setVizDataKey(e.target.value)} disabled={columns.length === 0} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {columns.map(col => <option key={col} value={col}>{col}</option>)}
                     </select>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium">{t('queryEditor.valuesY')}</label>
-                    <div className="mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 max-h-32 overflow-y-auto">
-                        {columns.map(col => (
-                        <div key={col} className="flex items-center">
-                            <input
-                            id={`col-${col}`}
-                            type="checkbox"
-                            checked={vizDataKeys.includes(col)}
-                            onChange={() => handleDataKeysChange(col)}
-                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <label htmlFor={`col-${col}`} className="ml-2 text-sm text-gray-700 dark:text-gray-300">{col}</label>
-                        </div>
-                        ))}
-                    </div>
+                 <div>
+                    <label className="block text-sm font-medium">{t('queryEditor.format')}</label>
+                    <select value={vizKpiFormat} onChange={e => setVizKpiFormat(e.target.value as any)} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
+                       <option value="number">{t('queryEditor.number')}</option>
+                       <option value="percent">{t('queryEditor.percentage')}</option>
+                    </select>
                 </div>
-                 {columns.length === 0 && isEditing && <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t('queryEditor.runQueryToEditColumns')}</p>}
-            </>
+                {columns.length === 0 && isEditing && <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t('queryEditor.runQueryToEditColumns')}</p>}
+              </>
+            )}
+
+            {[ChartType.BAR, ChartType.LINE, ChartType.AREA].includes(vizType) && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium">{t('queryEditor.categoryX')}</label>
+                  <select value={vizCategoryKey} onChange={e => setVizCategoryKey(e.target.value)} disabled={columns.length === 0} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {columns.map(col => <option key={col} value={col}>{col}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">{t('queryEditor.valueY')}</label>
+                  <select value={vizDataKey} onChange={e => setVizDataKey(e.target.value)} disabled={columns.length === 0} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {columns.map(col => <option key={col} value={col}>{col}</option>)}
+                  </select>
+                </div>
+                {columns.length === 0 && isEditing && <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t('queryEditor.runQueryToEditColumns')}</p>}
+              </>
+            )}
+            
+            {vizType === ChartType.MULTI_LINE && (
+                <>
+                    <div>
+                        <label className="block text-sm font-medium">{t('queryEditor.categoryX')}</label>
+                        <select value={vizCategoryKey} onChange={e => setVizCategoryKey(e.target.value)} disabled={columns.length === 0} className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                            {columns.map(col => <option key={col} value={col}>{col}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium">{t('queryEditor.valuesY')}</label>
+                        <div className="mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 max-h-32 overflow-y-auto">
+                            {columns.map(col => (
+                            <div key={col} className="flex items-center">
+                                <input
+                                id={`col-${col}`}
+                                type="checkbox"
+                                checked={vizDataKeys.includes(col)}
+                                onChange={() => handleDataKeysChange(col)}
+                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <label htmlFor={`col-${col}`} className="ml-2 text-sm text-gray-700 dark:text-gray-300">{col}</label>
+                            </div>
+                            ))}
+                        </div>
+                    </div>
+                     {columns.length === 0 && isEditing && <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t('queryEditor.runQueryToEditColumns')}</p>}
+                </>
+            )}
+          </>
         )}
 
         <div className="border-t pt-4">

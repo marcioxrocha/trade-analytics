@@ -110,7 +110,9 @@
     "removeCardLabel": "Remove card",
     "editCardLabel": "Edit Card",
     "cloneCardLabel": "Clone Card",
-    "unsupported": "Unsupported chart type"
+    "unsupported": "Unsupported chart type",
+    "spacerTitle": "Spacer",
+    "spacerDescription": "An empty card for layout organization."
   },
   "queryEditor": {
     "title": "Query Editor",
@@ -131,6 +133,7 @@
     "areaChart": "Area Chart",
     "table": "Table",
     "kpi": "KPI",
+    "spacer": "Spacer",
     "number": "Number",
     "percentage": "Percentage",
     "format": "Format",

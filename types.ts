@@ -62,6 +62,7 @@ export enum ChartType {
   KPI = 'kpi',
   TABLE = 'table',
   MULTI_LINE = 'multi-line',
+  SPACER = 'spacer',
 }
 
 export type QueryLanguage = 'sql' | 'mongo' | 'redis' | 'supabase';

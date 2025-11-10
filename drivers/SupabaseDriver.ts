@@ -61,6 +61,15 @@ export class SupabaseDriver implements IDatabaseDriver {
     } catch(e) {
         throw new Error(`Invalid Supabase connection string format. Expected a JSON object with 'url' and 'key'. Error: ${(e as Error).message}`);
     }
+
+    // Clean the query to prevent syntax errors during execution.
+    // Trim whitespace and remove any trailing semicolon.
+    const cleanQuery = request.query.trim().replace(/;$/, '');
+
+    // If the query is empty after cleaning, there's nothing to execute. Return an empty result set.
+    if (!cleanQuery) {
+        return { columns: [], rows: [] };
+    }
     
     // If useProxy is explicitly false, connect directly from the client.
     if (connDetails.useProxy === false) {
@@ -68,19 +77,61 @@ export class SupabaseDriver implements IDatabaseDriver {
         try {
             const { createClient } = await import('@supabase/supabase-js');
             const supabase = createClient(connDetails.url, connDetails.key);
-            const queryFunction = new Function('supabase', `return supabase.${request.query}`);
-            const { data, error } = await queryFunction(supabase);
+            
+            const PAGE_SIZE = 1000; // Supabase's default max limit
+            let allData: any[] = [];
+            let page = 0;
+            let keepFetching = true;
 
-            if (error) {
-                throw new Error(error.message);
+            if(cleanQuery.indexOf('.limit(')>0){
+                const queryFunction = new Function('supabase', `return supabase.${cleanQuery}`);
+                const { data, error } = await queryFunction(supabase);
+
+                if (error) {
+                    throw new Error(error.message);
+                }
+
+                if (!data || data.length === 0) {
+                    return { columns: [], rows: [] };
+                }
+
+                const columns = Object.keys(data[0]);
+                const rows = data.map((doc: any) => columns.map(col => doc[col]));
+                return { columns, rows };                
             }
 
-            if (!data || data.length === 0) {
+            while(keepFetching) {
+                const from = page * PAGE_SIZE;
+                const to = from + PAGE_SIZE - 1;
+                
+                // Append the range to the user's query
+                const paginatedQuery = `${cleanQuery}.range(${from}, ${to})`;
+                
+                const queryFunction = new Function('supabase', `return supabase.${paginatedQuery}`);
+                const { data, error } = await queryFunction(supabase);
+
+                if (error) {
+                    throw new Error(error.message);
+                }
+
+                if (data && data.length > 0) {
+                    allData = [...allData, ...data];
+                }
+                
+                // If we got less data than the page size, it's the last page.
+                if (!data || data.length < PAGE_SIZE) {
+                    keepFetching = false;
+                }
+                
+                page++;
+            }
+
+            if (!allData || allData.length === 0) {
                 return { columns: [], rows: [] };
             }
 
-            const columns = Object.keys(data[0]);
-            const rows = data.map((doc: any) => columns.map(col => doc[col]));
+            const columns = Object.keys(allData[0]);
+            const rows = allData.map((doc: any) => columns.map(col => doc[col]));
             return { columns, rows };
 
         } catch (err) {
@@ -116,7 +167,7 @@ export class SupabaseDriver implements IDatabaseDriver {
         body: JSON.stringify({
           type: request.dataSource.type,
           connectionString: request.dataSource.connectionString,
-          query: request.query,
+          query: cleanQuery,
         }),
       });
 

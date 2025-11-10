@@ -110,7 +110,9 @@
     "removeCardLabel": "Remover cartão",
     "editCardLabel": "Editar Cartão",
     "cloneCardLabel": "Clonar Cartão",
-    "unsupported": "Tipo de gráfico não suportado"
+    "unsupported": "Tipo de gráfico não suportado",
+    "spacerTitle": "Espaçador",
+    "spacerDescription": "Um cartão vazio para organização do layout."
   },
   "queryEditor": {
     "title": "Editor de Consulta",
@@ -131,6 +133,7 @@
     "areaChart": "Gráfico de Área",
     "table": "Tabela",
     "kpi": "KPI",
+    "spacer": "Espaçador",
     "number": "Número",
     "percentage": "Porcentagem",
     "format": "Formato",

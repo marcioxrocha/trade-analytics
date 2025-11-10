@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { ChartCardData, QueryResult, ColumnDataType, QueryLanguage, DataSource, Variable } from '../types';
+import { ChartCardData, QueryResult, ColumnDataType, QueryLanguage, DataSource, Variable, ChartType } from '../types';
 import Icon from './Icon';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAppContext } from '../contexts/AppContext';
@@ -262,7 +263,13 @@ const QueryEditorView: React.FC<QueryEditorViewProps> = ({ editingCardId, onFini
             setPostProcessingScript(cardToEdit.postProcessingScript || '');
             setShowPostProcessing(!!cardToEdit.postProcessingScript);
             setPreviewCard(null); // Clear old preview
-            executeQuery(cardToEdit.query, cardToEdit.dataSourceId);
+            
+            // Only execute query if it's not a spacer card
+            if (cardToEdit.type !== ChartType.SPACER && (cardToEdit.query || cardToEdit.dataSourceId)) {
+                executeQuery(cardToEdit.query, cardToEdit.dataSourceId);
+            } else {
+                setIsInitialLoadDone(true); // For spacers or cards without queries, just mark as loaded
+            }
         } else {
              // Reset when creating a new card
             setPostProcessingScript('');
@@ -457,8 +464,9 @@ Only return the SQL query, with no other text, explanation, or markdown formatti
         if (cardToEdit) {
             return isInitialLoadDone; // If editing, wait for initial load.
         }
-        return !!displayResult; // If creating, wait for any result.
-    }, [cardToEdit, isInitialLoadDone, displayResult]);
+        // Always render for new cards, so non-data cards (like spacers) can be created.
+        return true; 
+    }, [cardToEdit, isInitialLoadDone]);
 
     return (
         <>
