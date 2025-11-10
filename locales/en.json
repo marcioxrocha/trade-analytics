@@ -179,6 +179,8 @@
     "managePermissions": "Manage Permissions",
     "dataSources": "Data Sources",
     "dataSourcesDesc": "Connect and manage your databases.",
+    "exportDataSources": "Export Data Sources...",
+    "importDataSources": "Import Data Sources...",
     "removeSourceTitle": "Remove Data Source",
     "removeSourceConfirm": "Are you sure you want to remove the \"{source}\" data source?",
     "removeSourceLabel": "Remove data source",

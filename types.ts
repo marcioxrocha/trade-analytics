@@ -126,6 +126,8 @@ export interface AppContextType {
   updateAllVariables: (dashboardId: string, allVariables: Variable[]) => void;
   exportDashboards: (dashboardIds: string[]) => void;
   importDashboards: (data: ExportData, selectedDashboardsFromFile: Dashboard[]) => void;
+  exportDataSources: (dataSourceIds: string[]) => void;
+  importDataSources: (data: ExportData, selectedDataSourcesFromFile: DataSource[]) => void;
   isLoading: boolean;
   settingsSaveStatus: SaveStatus;
   syncDashboards: () => Promise<void>;
@@ -167,7 +169,8 @@ export interface ExportData {
         version: number;
         exportedAt: string;
     };
-    dashboards: Dashboard[];
-    cards: ChartCardData[];
-    variables: Variable[];
+    dashboards?: Dashboard[];
+    cards?: ChartCardData[];
+    variables?: Variable[];
+    dataSources?: DataSource[];
 }

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import Icon from './Icon';
 import { useLanguage } from '../contexts/LanguageContext';
-import { DataSource, DatabaseType } from '../types';
+import { DataSource, DatabaseType, ExportData } from '../types';
 import { useAppContext } from '../contexts/AppContext';
 import { useDashboardModal } from '../contexts/ModalContext';
 import SaveStatusIndicator from './SaveStatusIndicator';
+import Modal from './Modal';
+import ExportImportModal from './ExportImportModal';
 
 const SettingsCard: React.FC<{ title: string; description: string; children?: React.ReactNode }> = ({ title, description, children }) => (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
@@ -31,6 +33,8 @@ const SettingsView: React.FC = () => {
         settingsSaveStatus,
         syncSettings,
         apiConfig,
+        exportDataSources,
+        importDataSources,
     } = useAppContext();
     const { showModal, hideModal } = useDashboardModal();
     
@@ -41,6 +45,9 @@ const SettingsView: React.FC = () => {
     const [newSourceSupabaseKey, setNewSourceSupabaseKey] = useState('');
     const [newSourceSupabaseUseProxy, setNewSourceSupabaseUseProxy] = useState(true);
     const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
+    const [isDataSourceExportImportModalOpen, setIsDataSourceExportImportModalOpen] = useState(false);
+    const [dataSourceModalMode, setDataSourceModalMode] = useState<'export' | 'import'>('export');
+
 
     const handleSaveDataSource = (e: React.FormEvent) => {
         e.preventDefault();
@@ -177,6 +184,24 @@ const SettingsView: React.FC = () => {
         }
     };
 
+    const handleOpenDataSourceExport = () => {
+        setDataSourceModalMode('export');
+        setIsDataSourceExportImportModalOpen(true);
+    };
+    const handleOpenDataSourceImport = () => {
+        setDataSourceModalMode('import');
+        setIsDataSourceExportImportModalOpen(true);
+    };
+    const handleConfirmDataSourceExport = (selectedIds: string[]) => {
+        exportDataSources(selectedIds);
+        setIsDataSourceExportImportModalOpen(false);
+    };
+    const handleConfirmDataSourceImport = (data: ExportData, selectedItems: {id: string, name: string}[]) => {
+        const selectedDataSources = data.dataSources?.filter(ds => selectedItems.some(item => item.id === ds.id)) || [];
+        importDataSources(data, selectedDataSources);
+        setIsDataSourceExportImportModalOpen(false);
+    };
+
 
     return (
         <div>
@@ -241,6 +266,16 @@ const SettingsView: React.FC = () => {
                 </SettingsCard>
 
                 <SettingsCard title={t('settings.dataSources')} description={t('settings.dataSourcesDesc')}>
+                     <div className="flex justify-end gap-2 mb-4">
+                        <button onClick={handleOpenDataSourceImport} className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors border dark:border-gray-600">
+                           <Icon name="upload_file" className="w-4 h-4" />
+                           {t('settings.importDataSources')}
+                        </button>
+                        <button onClick={handleOpenDataSourceExport} disabled={dataSources.length === 0} className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors border dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <Icon name="download" className="w-4 h-4" />
+                            {t('settings.exportDataSources')}
+                        </button>
+                    </div>
                      <div className="space-y-3 mb-6">
                         {dataSources.map(source => (
                             <div key={source.id} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-3 rounded-md">
@@ -343,6 +378,23 @@ const SettingsView: React.FC = () => {
                 </SettingsCard>
 
             </div>
+            <Modal
+                isOpen={isDataSourceExportImportModalOpen}
+                onClose={() => setIsDataSourceExportImportModalOpen(false)}
+                title={dataSourceModalMode === 'export' ? t('settings.exportDataSources') : t('settings.importDataSources')}
+            >
+                <ExportImportModal
+                    mode={dataSourceModalMode}
+                    title={dataSourceModalMode === 'export' ? t('settings.exportDataSources') : t('settings.importDataSources')}
+                    selectExportLabel={t('dashboard.selectToExport')}
+                    selectImportLabel={t('dashboard.selectToImport')}
+                    getImportableItems={(data) => data.dataSources}
+                    itemsToExport={dataSources}
+                    onConfirmExport={handleConfirmDataSourceExport}
+                    onConfirmImport={handleConfirmDataSourceImport}
+                    onClose={() => setIsDataSourceExportImportModalOpen(false)}
+                />
+            </Modal>
         </div>
     );
 };

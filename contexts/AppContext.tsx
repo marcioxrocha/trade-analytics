@@ -385,7 +385,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
     const a = document.createElement("a");
     const date = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
     a.href = url;
-    a.download = `analytics_builder_export_${date}.json`;
+    a.download = `analytics_builder_export_dashboards_${date}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -412,7 +412,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
         });
     });
 
-    data.cards.forEach(card => {
+    data.cards?.forEach(card => {
         if (idMap.has(card.dashboardId)) {
             newCards.push({
                 ...card,
@@ -422,7 +422,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
         }
     });
     
-    data.variables.forEach(variable => {
+    data.variables?.forEach(variable => {
          if (idMap.has(variable.dashboardId)) {
             newVariables.push({
                 ...variable,
@@ -436,6 +436,43 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
     setDashboardCards(prev => [...prev, ...newCards]);
     setVariables(prev => [...prev, ...newVariables]);
     setSettingsSaveStatus('unsaved'); // The list of dashboards is a setting
+  }, []);
+  
+  const exportDataSources = useCallback((dataSourceIds: string[]) => {
+    const dataToExport: ExportData = {
+        metadata: {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+        },
+        dataSources: dataSources.filter(ds => dataSourceIds.includes(ds.id)),
+    };
+
+    const jsonString = JSON.stringify(dataToExport, null, 2);
+    const blob = new Blob([jsonString], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const date = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    a.href = url;
+    a.download = `analytics_builder_export_datasources_${date}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [dataSources]);
+
+  const importDataSources = useCallback((data: ExportData, selectedDataSourcesFromFile: DataSource[]) => {
+    if (!data.dataSources) return;
+
+    const newDataSources: DataSource[] = [];
+    selectedDataSourcesFromFile.forEach(dsFromFile => {
+        newDataSources.push({
+            ...dsFromFile,
+            id: crypto.randomUUID(),
+        });
+    });
+    
+    setDataSources(prev => [...prev, ...newDataSources]);
+    setSettingsSaveStatus('unsaved');
   }, []);
 
   const memoizedSetActiveDashboardId = useCallback((id: string) => {
@@ -476,6 +513,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
     updateAllVariables,
     exportDashboards,
     importDashboards,
+    exportDataSources,
+    importDataSources,
     isLoading,
     settingsSaveStatus,
     syncDashboards,
@@ -492,7 +531,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
     addDataSource, updateDataSource, removeDataSource, addDashboard, duplicateDashboard, removeDashboard, 
     memoizedSetActiveDashboardId, updateDashboardName, updateActiveDashboardSettings, updateWhiteLabelSettings, addCard, 
     cloneCard, updateCard, removeCard, reorderDashboardCards, addVariable, updateVariable, removeVariable,
-    updateAllVariables, exportDashboards, importDashboards, isLoading, settingsSaveStatus, syncDashboards, syncSettings, autoSaveEnabled, toggleAutoSave, formattingVersion,
+    updateAllVariables, exportDashboards, importDashboards, exportDataSources, importDataSources, isLoading, settingsSaveStatus, syncDashboards, syncSettings, autoSaveEnabled, toggleAutoSave, formattingVersion,
     apiConfig, instanceKey, department, owner
   ]);
 

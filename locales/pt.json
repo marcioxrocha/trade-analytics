@@ -179,6 +179,8 @@
     "managePermissions": "Gerenciar Permissões",
     "dataSources": "Fontes de Dados",
     "dataSourcesDesc": "Conecte e gerencie seus bancos de dados.",
+    "exportDataSources": "Exportar Fontes de Dados...",
+    "importDataSources": "Importar Fontes de Dados...",
     "removeSourceTitle": "Remover Fonte de Dados",
     "removeSourceConfirm": "Tem certeza de que deseja remover a fonte de dados \"{source}\"?",
     "removeSourceLabel": "Remover fonte de dados",

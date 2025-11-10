@@ -6,13 +6,27 @@ import Icon from './Icon';
 
 interface ExportImportModalProps {
     mode: 'export' | 'import';
-    dashboards: Dashboard[]; // Current dashboards for export mode
+    itemsToExport: { id: string; name: string }[];
     onConfirmExport: (selectedIds: string[]) => void;
-    onConfirmImport: (data: ExportData, selectedDashboards: Dashboard[]) => void;
+    onConfirmImport: (data: ExportData, selectedItems: { id: string; name: string }[]) => void;
     onClose: () => void;
+    getImportableItems: (data: ExportData) => { id: string; name: string }[] | undefined;
+    title: string;
+    selectExportLabel: string;
+    selectImportLabel: string;
 }
 
-const ExportImportModal: React.FC<ExportImportModalProps> = ({ mode, dashboards, onConfirmExport, onConfirmImport, onClose }) => {
+const ExportImportModal: React.FC<ExportImportModalProps> = ({ 
+    mode, 
+    itemsToExport, 
+    onConfirmExport, 
+    onConfirmImport, 
+    onClose,
+    getImportableItems,
+    title,
+    selectExportLabel,
+    selectImportLabel
+}) => {
     const { t } = useLanguage();
     const { showModal, hideModal } = useDashboardModal();
 
@@ -20,7 +34,7 @@ const ExportImportModal: React.FC<ExportImportModalProps> = ({ mode, dashboards,
     const [fileContent, setFileContent] = useState<ExportData | null>(null);
     const [fileName, setFileName] = useState<string>('');
 
-    const dashboardsToShow = mode === 'export' ? dashboards : fileContent?.dashboards || [];
+    const itemsToShow = mode === 'export' ? itemsToExport : (fileContent ? getImportableItems(fileContent) || [] : []);
 
     const handleToggleSelection = (id: string) => {
         setSelectedIds(prev =>
@@ -29,10 +43,10 @@ const ExportImportModal: React.FC<ExportImportModalProps> = ({ mode, dashboards,
     };
 
     const handleToggleAll = () => {
-        if (selectedIds.length === dashboardsToShow.length) {
+        if (selectedIds.length === itemsToShow.length) {
             setSelectedIds([]);
         } else {
-            setSelectedIds(dashboardsToShow.map(d => d.id));
+            setSelectedIds(itemsToShow.map(d => d.id));
         }
     };
     
@@ -47,7 +61,7 @@ const ExportImportModal: React.FC<ExportImportModalProps> = ({ mode, dashboards,
                 const text = e.target?.result as string;
                 const data = JSON.parse(text);
                 // Basic validation
-                if (data.metadata?.version && data.dashboards && data.cards && data.variables) {
+                if (data.metadata?.version && (data.dashboards || data.dataSources)) {
                     setFileContent(data);
                     setSelectedIds([]); // Reset selection
                 } else {
@@ -70,14 +84,14 @@ const ExportImportModal: React.FC<ExportImportModalProps> = ({ mode, dashboards,
         if (mode === 'export') {
             onConfirmExport(selectedIds);
         } else if (fileContent) {
-            const selectedDashboards = fileContent.dashboards.filter(d => selectedIds.includes(d.id));
-            onConfirmImport(fileContent, selectedDashboards);
+            const selectedItems = itemsToShow.filter(item => selectedIds.includes(item.id));
+            onConfirmImport(fileContent, selectedItems);
         }
     };
 
-    const isAllSelected = selectedIds.length > 0 && selectedIds.length === dashboardsToShow.length;
+    const isAllSelected = selectedIds.length > 0 && selectedIds.length === itemsToShow.length;
     const buttonText = isAllSelected ? t('dashboard.deselectAll') : t('dashboard.selectAll');
-    const buttonDisabled = (mode === 'export' && dashboards.length === 0) || (mode === 'import' && !fileContent);
+    const buttonDisabled = (mode === 'export' && itemsToExport.length === 0) || (mode === 'import' && !fileContent);
 
     return (
         <div className="space-y-4">
@@ -95,10 +109,10 @@ const ExportImportModal: React.FC<ExportImportModalProps> = ({ mode, dashboards,
                 </div>
             )}
             
-            {((mode === 'export' && dashboards.length > 0) || (mode === 'import' && fileContent)) && (
+            {((mode === 'export' && itemsToExport.length > 0) || (mode === 'import' && fileContent)) && (
                 <>
                     <div>
-                        <p className="text-sm font-medium">{mode === 'export' ? t('dashboard.selectToExport') : t('dashboard.selectToImport')}</p>
+                        <p className="text-sm font-medium">{mode === 'export' ? selectExportLabel : selectImportLabel}</p>
                     </div>
                     <div className="flex justify-start">
                          <button
@@ -110,17 +124,17 @@ const ExportImportModal: React.FC<ExportImportModalProps> = ({ mode, dashboards,
                         </button>
                     </div>
                      <div className="border rounded-md max-h-60 overflow-y-auto dark:border-gray-600">
-                        {dashboardsToShow.map(dashboard => (
-                            <div key={dashboard.id} className="flex items-center p-3 border-b dark:border-gray-700 last:border-b-0">
+                        {itemsToShow.map(item => (
+                            <div key={item.id} className="flex items-center p-3 border-b dark:border-gray-700 last:border-b-0">
                                 <input
                                     type="checkbox"
-                                    id={`dashboard-select-${dashboard.id}`}
-                                    checked={selectedIds.includes(dashboard.id)}
-                                    onChange={() => handleToggleSelection(dashboard.id)}
+                                    id={`item-select-${item.id}`}
+                                    checked={selectedIds.includes(item.id)}
+                                    onChange={() => handleToggleSelection(item.id)}
                                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                 />
-                                <label htmlFor={`dashboard-select-${dashboard.id}`} className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {dashboard.name}
+                                <label htmlFor={`item-select-${item.id}`} className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {item.name}
                                 </label>
                             </div>
                         ))}
