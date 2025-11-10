@@ -59,6 +59,7 @@
     "importFilePrompt": "Select an export file (.json) to import.",
     "importErrorTitle": "Import Error",
     "importInvalidFile": "The selected file is not a valid export file.",
+    "noDashboardsToExport": "No dashboards available to export.",
     "saveStatus": {
       "unsaved": "Unsaved changes",
       "savingLocal": "Saving locally...",
@@ -186,6 +187,7 @@
     "removeSourceLabel": "Remove data source",
     "editSourceLabel": "Edit data source",
     "noSources": "No data sources connected.",
+    "noDataSourcesToExport": "No data sources available to export.",
     "addDataSource": "Add New Data Source",
     "editDataSource": "Edit Data Source",
     "saveConnection": "Save Connection",

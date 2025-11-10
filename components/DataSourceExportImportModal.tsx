@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
-import { ExportData, Dashboard } from '../types';
+import { ExportData, DataSource } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useDashboardModal } from '../contexts/ModalContext';
 import Icon from './Icon';
 
-interface DashboardExportImportModalProps {
+interface DataSourceExportImportModalProps {
     mode: 'export' | 'import';
-    dashboardsToExport: Dashboard[];
+    dataSourcesToExport: DataSource[];
     onConfirmExport: (selectedIds: string[]) => void;
-    onConfirmImport: (data: ExportData, selectedItems: Dashboard[]) => void;
+    onConfirmImport: (data: ExportData, selectedItems: DataSource[]) => void;
     onClose: () => void;
 }
 
-const DashboardExportImportModal: React.FC<DashboardExportImportModalProps> = ({ 
+const DataSourceExportImportModal: React.FC<DataSourceExportImportModalProps> = ({ 
     mode, 
-    dashboardsToExport,
+    dataSourcesToExport,
     onConfirmExport, 
     onConfirmImport, 
     onClose,
@@ -26,11 +26,11 @@ const DashboardExportImportModal: React.FC<DashboardExportImportModalProps> = ({
     const [fileContent, setFileContent] = useState<ExportData | null>(null);
     const [fileName, setFileName] = useState<string>('');
     
-    let itemsToShow: Dashboard[];
+    let itemsToShow: DataSource[];
     if (mode === 'import') {
-        itemsToShow = fileContent?.dashboards || [];
+        itemsToShow = fileContent?.dataSources || [];
     } else {
-        itemsToShow = dashboardsToExport;
+        itemsToShow = dataSourcesToExport;
     }
 
     const handleToggleSelection = (id: string) => {
@@ -57,11 +57,11 @@ const DashboardExportImportModal: React.FC<DashboardExportImportModalProps> = ({
             try {
                 const text = e.target?.result as string;
                 const data = JSON.parse(text);
-                if (data.metadata?.version && data.dashboards) {
+                if (data.metadata?.version && data.dataSources) {
                     setFileContent(data);
                     setSelectedIds([]);
                 } else {
-                    throw new Error("Invalid file structure for dashboard import.");
+                    throw new Error("Invalid file structure for data source import.");
                 }
             } catch (error) {
                 setFileContent(null);
@@ -87,8 +87,8 @@ const DashboardExportImportModal: React.FC<DashboardExportImportModalProps> = ({
     
     const renderList = () => {
         if (itemsToShow.length === 0) {
-            const message = mode === 'export'
-                ? t('dashboard.noDashboardsToExport')
+             const message = mode === 'export'
+                ? t('settings.noDataSourcesToExport')
                 : t('dashboard.importFilePrompt');
             return <p className="text-center text-gray-500 dark:text-gray-400 py-4">{message}</p>;
         }
@@ -99,7 +99,7 @@ const DashboardExportImportModal: React.FC<DashboardExportImportModalProps> = ({
         return (
             <div className="space-y-3">
                 <div>
-                    <p className="text-sm font-medium">{mode === 'export' ? t('dashboard.selectToExport') : t('dashboard.selectToImport')}</p>
+                    <p className="text-sm font-medium">{mode === 'export' ? "Selecione as fontes de dados para exportar:" : "Selecione as fontes de dados do arquivo para importar:"}</p>
                 </div>
                 <div className="flex justify-start">
                      <button
@@ -135,13 +135,13 @@ const DashboardExportImportModal: React.FC<DashboardExportImportModalProps> = ({
                  <div className="w-full">
                     <label className="block text-sm font-medium mb-2">{t('dashboard.importFilePrompt')}</label>
                     <label
-                        htmlFor="file-upload"
+                        htmlFor="file-upload-ds"
                         className="flex items-center justify-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600"
                     >
                         <Icon name="upload_file" className="w-5 h-5 mr-2" />
                         <span>{fileName || 'Choose a file...'}</span>
                     </label>
-                    <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept=".json" />
+                    <input id="file-upload-ds" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept=".json" />
                 </div>
             )}
             
@@ -162,4 +162,4 @@ const DashboardExportImportModal: React.FC<DashboardExportImportModalProps> = ({
     );
 };
 
-export default DashboardExportImportModal;
+export default DataSourceExportImportModal;

@@ -6,7 +6,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { useDashboardModal } from '../contexts/ModalContext';
 import SaveStatusIndicator from './SaveStatusIndicator';
 import Modal from './Modal';
-import ExportImportModal from './ExportImportModal';
+import DataSourceExportImportModal from './DataSourceExportImportModal';
 
 const SettingsCard: React.FC<{ title: string; description: string; children?: React.ReactNode }> = ({ title, description, children }) => (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
@@ -196,9 +196,8 @@ const SettingsView: React.FC = () => {
         exportDataSources(selectedIds);
         setIsDataSourceExportImportModalOpen(false);
     };
-    const handleConfirmDataSourceImport = (data: ExportData, selectedItems: {id: string, name: string}[]) => {
-        const selectedDataSources = data.dataSources?.filter(ds => selectedItems.some(item => item.id === ds.id)) || [];
-        importDataSources(data, selectedDataSources);
+    const handleConfirmDataSourceImport = (data: ExportData, selectedItems: DataSource[]) => {
+        importDataSources(data, selectedItems);
         setIsDataSourceExportImportModalOpen(false);
     };
 
@@ -383,13 +382,9 @@ const SettingsView: React.FC = () => {
                 onClose={() => setIsDataSourceExportImportModalOpen(false)}
                 title={dataSourceModalMode === 'export' ? t('settings.exportDataSources') : t('settings.importDataSources')}
             >
-                <ExportImportModal
+                <DataSourceExportImportModal
                     mode={dataSourceModalMode}
-                    title={dataSourceModalMode === 'export' ? t('settings.exportDataSources') : t('settings.importDataSources')}
-                    selectExportLabel={t('dashboard.selectToExport')}
-                    selectImportLabel={t('dashboard.selectToImport')}
-                    getImportableItems={(data) => data.dataSources}
-                    itemsToExport={dataSources}
+                    dataSourcesToExport={dataSources}
                     onConfirmExport={handleConfirmDataSourceExport}
                     onConfirmImport={handleConfirmDataSourceImport}
                     onClose={() => setIsDataSourceExportImportModalOpen(false)}

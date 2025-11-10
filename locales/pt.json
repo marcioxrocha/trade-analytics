@@ -59,6 +59,7 @@
     "importFilePrompt": "Selecione um arquivo de exportação (.json) para importar.",
     "importErrorTitle": "Erro na Importação",
     "importInvalidFile": "O arquivo selecionado não é uma exportação válida.",
+    "noDashboardsToExport": "Não há painéis disponíveis para exportar.",
     "saveStatus": {
       "unsaved": "Alterações não salvas",
       "savingLocal": "Salvando localmente...",
@@ -186,6 +187,7 @@
     "removeSourceLabel": "Remover fonte de dados",
     "editSourceLabel": "Editar fonte de dados",
     "noSources": "Nenhuma fonte de dados conectada.",
+    "noDataSourcesToExport": "Não há fontes de dados para exportar.",
     "addDataSource": "Adicionar Nova Fonte de Dados",
     "editDataSource": "Editar Fonte de Dados",
     "saveConnection": "Salvar Conexão",

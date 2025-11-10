@@ -12,7 +12,7 @@ import FormattingSettingsManager from './FormattingSettingsManager';
 import { DEFAULT_FORMATTING_SETTINGS } from '../services/formattingService';
 import SaveStatusIndicator from './SaveStatusIndicator';
 import { substituteVariablesInQuery } from '../services/queryService';
-import ExportImportModal from './ExportImportModal';
+import DashboardExportImportModal from './ExportImportModal';
 
 interface DashboardGridProps {
     onEditCard: (cardId: string) => void;
@@ -75,7 +75,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
         if (owner) {
             fixedVars.push({ id: 'fixed-owner', dashboardId: activeDashboardId, name: 'owner', value: owner });
         }
-        return [...fixedVars, ...userVars];
+        return [...userVars, ...fixedVars];
     }, [variables, activeDashboardId, department, owner]);
 
     const finalDashboardName = useMemo(() => {
@@ -313,8 +313,8 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
         setIsExportImportModalOpen(false);
     };
     
-    const handleConfirmImport = (data: ExportData, selectedDashboards: Dashboard[]) => {
-        importDashboards(data, selectedDashboards);
+    const handleConfirmImport = (data: ExportData, selectedItems: Dashboard[]) => {
+        importDashboards(data, selectedItems);
         setIsExportImportModalOpen(false);
     };
 
@@ -462,9 +462,9 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
                 onClose={() => setIsExportImportModalOpen(false)}
                 title={modalMode === 'export' ? t('dashboard.exportModalTitle') : t('dashboard.importModalTitle')}
             >
-                <ExportImportModal 
+                <DashboardExportImportModal
                     mode={modalMode}
-                    dashboards={dashboards}
+                    dashboardsToExport={dashboards}
                     onConfirmExport={handleConfirmExport}
                     onConfirmImport={handleConfirmImport}
                     onClose={() => setIsExportImportModalOpen(false)}
