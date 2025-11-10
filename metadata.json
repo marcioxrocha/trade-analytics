@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Analytics Builder Mercado",
+  "description": "A customizable analytics dashboard builder. Features a visual query builder, a SQL editor, customizable visualizations, and export options. Built with React, TypeScript, and Tailwind CSS.",
+  "requestFramePermissions": []
+}
