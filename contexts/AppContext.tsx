@@ -400,10 +400,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
   const importDashboards = useCallback((data: ExportData, selectedDashboardsFromFile: Dashboard[]) => {
     const dataSourceIdMap = new Map<string, string>();
     const newDataSources: DataSource[] = [];
-    const existingDataSourceNames = new Set(dataSources.map(ds => ds.name));
+    const allDataSourceNames = new Set(dataSources.map(ds => ds.name));
 
     data.dataSources?.forEach(dsFromFile => {
-        if (existingDataSourceNames.has(dsFromFile.name)) {
+        if (allDataSourceNames.has(dsFromFile.name)) {
             const existingDS = dataSources.find(ds => ds.name === dsFromFile.name);
             if (existingDS) {
                 dataSourceIdMap.set(dsFromFile.id, existingDS.id);
@@ -416,6 +416,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
                 ...dsFromFile,
                 id: newId,
             });
+            allDataSourceNames.add(dsFromFile.name); // Handle duplicates within the import file
         }
     });
 
@@ -424,15 +425,27 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
     const newCards: ChartCardData[] = [];
     const newVariables: Variable[] = [];
 
+    const allDashboardNames = new Set(dashboards.map(d => d.name));
+
     selectedDashboardsFromFile.forEach(dashboardFromFile => {
         const oldId = dashboardFromFile.id;
         const newId = crypto.randomUUID();
         dashboardIdMap.set(oldId, newId);
+        
+        let newName = dashboardFromFile.name;
+        if (allDashboardNames.has(newName)) {
+            let copyIndex = 1;
+            while (allDashboardNames.has(`${dashboardFromFile.name} (${copyIndex})`)) {
+                copyIndex++;
+            }
+            newName = `${dashboardFromFile.name} (${copyIndex})`;
+        }
+        allDashboardNames.add(newName); // Handle duplicates within the import file
 
         newDashboards.push({
             ...dashboardFromFile,
             id: newId,
-            name: `${dashboardFromFile.name} (Importado)`,
+            name: newName,
             saveStatus: 'unsaved',
         });
     });
@@ -466,7 +479,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
     setDashboardCards(prev => [...prev, ...newCards]);
     setVariables(prev => [...prev, ...newVariables]);
     setSettingsSaveStatus('unsaved');
-  }, [dataSources]);
+  }, [dataSources, dashboards]);
   
   const exportDataSources = useCallback((dataSourceIds: string[]) => {
     const dataToExport: ExportData = {
@@ -493,17 +506,30 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
   const importDataSources = useCallback((data: ExportData, selectedDataSourcesFromFile: DataSource[]) => {
     if (!data.dataSources) return;
 
+    const allDataSourceNames = new Set(dataSources.map(ds => ds.name));
     const newDataSources: DataSource[] = [];
+
     selectedDataSourcesFromFile.forEach(dsFromFile => {
+        let newName = dsFromFile.name;
+        if (allDataSourceNames.has(newName)) {
+            let copyIndex = 1;
+            while(allDataSourceNames.has(`${dsFromFile.name} (${copyIndex})`)) {
+                copyIndex++;
+            }
+            newName = `${dsFromFile.name} (${copyIndex})`;
+        }
+        allDataSourceNames.add(newName);
+
         newDataSources.push({
             ...dsFromFile,
             id: crypto.randomUUID(),
+            name: newName,
         });
     });
     
     setDataSources(prev => [...prev, ...newDataSources]);
     setSettingsSaveStatus('unsaved');
-  }, []);
+  }, [dataSources]);
 
   const memoizedSetActiveDashboardId = useCallback((id: string) => {
     setActiveDashboardId(id);
