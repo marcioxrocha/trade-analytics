@@ -252,13 +252,23 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
             if (!card.data) return null;
             const rawValue = card.data[0]?.[card.dataKey];
             let formattedValue = 'N/A';
-            if (typeof rawValue === 'number') {
-                 const columnType = card.columnTypes?.[card.dataKey];
-                 formattedValue = formatValue(rawValue, columnType, formattingSettings);
+            let kpiColorClass = 'text-gray-800 dark:text-white'; // Default color
 
-                 if (card.kpiConfig?.format === 'percent') {
+            if (typeof rawValue === 'number') {
+                const columnType = card.columnTypes?.[card.dataKey];
+                formattedValue = formatValue(rawValue, columnType, formattingSettings);
+
+                if (card.kpiConfig?.format === 'percent') {
                     formattedValue = `${formattedValue}%`;
-                 }
+                }
+
+                // Set color based on value
+                if (rawValue > 0) {
+                    kpiColorClass = 'text-green-600 dark:text-green-500';
+                } else if (rawValue < 0) {
+                    kpiColorClass = 'text-red-600 dark:text-red-500';
+                }
+
             } else if (rawValue !== undefined && rawValue !== null) {
                 const columnType = card.columnTypes?.[card.dataKey];
                 formattedValue = formatValue(rawValue, columnType, formattingSettings);
@@ -266,7 +276,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
 
             return (
             <div className="flex flex-col items-center justify-center h-full text-center">
-                <h3 className="text-4xl md:text-5xl font-bold text-gray-800 dark:text-white">{formattedValue}</h3>
+                <h3 className={`text-4xl md:text-5xl font-bold ${kpiColorClass}`}>{formattedValue}</h3>
             </div>
             );
         case ChartType.TABLE:
@@ -287,7 +297,22 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
                                         const cellValue = row[header];
                                         const columnType = card.columnTypes?.[header];
                                         const formattedCell = formatValue(cellValue, columnType, formattingSettings);
-                                        return <td key={`${index}-${header}`} className="px-4 py-3">{String(formattedCell)}</td>
+                                        
+                                        let cellColorClass = '';
+                                        const isNumericColumn = ['integer', 'decimal', 'currency'].includes(columnType || '');
+                                        
+                                        if (isNumericColumn && cellValue != null && String(cellValue).trim() !== '') {
+                                            const numericValue = Number(cellValue);
+                                            if (!isNaN(numericValue)) {
+                                                if (numericValue > 0) {
+                                                    cellColorClass = 'text-green-600 dark:text-green-500 font-semibold';
+                                                } else if (numericValue < 0) {
+                                                    cellColorClass = 'text-red-600 dark:text-red-500 font-semibold';
+                                                }
+                                            }
+                                        }
+
+                                        return <td key={`${index}-${header}`} className={`px-4 py-3 ${cellColorClass}`}>{String(formattedCell)}</td>
                                     })}
                                 </tr>
                             ))}
@@ -329,7 +354,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
   };
 
   const containerClasses = isSpacer
-    ? "flex flex-col relative group w-full flex-grow h-full rounded-xl border-2 border-dashed border-transparent group-hover:border-gray-400 dark:group-hover:border-gray-600 transition-colors"
+    ? "flex flex-col relative group w-full flex-grow h-full rounded-xl border-2 border-dashed border-transparent hover:border-gray-400 dark:hover:border-gray-600 transition-colors"
     : "bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300 flex flex-col relative group w-full flex-grow";
 
   return (
