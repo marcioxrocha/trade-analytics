@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "copy:backend": "copyfiles ./locales/**/* ./dist",
+    "copy:backend": "cpx \"./locales/**/*\" \"./dist/locales\"",
     "build:environments": "node server.environments.js",
     "build:vite": "vite build",
     "build": "npm run build:environments && npm run build:vite && npm run copy:backend",
@@ -14,7 +14,7 @@
   "dependencies": {
     "@google/genai": "^1.27.0",
     "@supabase/supabase-js": "^2.80.0",
-    "copyfiles": "^2.4.1",
+    "cpx2": "^8.0.0",
     "dotenv": "^17.2.3",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3",
