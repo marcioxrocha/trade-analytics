@@ -369,14 +369,19 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
 }, [setDashboardUnsaved]);
 
   const exportDashboards = useCallback((dashboardIds: string[]) => {
+    const cardsToExport = dashboardCards.filter(c => dashboardIds.includes(c.dashboardId));
+    const requiredDataSourceIds = [...new Set(cardsToExport.map(c => c.dataSourceId))];
+    const dataSourcesToExport = dataSources.filter(ds => requiredDataSourceIds.includes(ds.id));
+
     const dataToExport: ExportData = {
         metadata: {
             version: 1,
             exportedAt: new Date().toISOString(),
         },
         dashboards: dashboards.filter(d => dashboardIds.includes(d.id)).map(d => ({ ...d, saveStatus: 'idle' })),
-        cards: dashboardCards.filter(c => dashboardIds.includes(c.dashboardId)),
+        cards: cardsToExport,
         variables: variables.filter(v => dashboardIds.includes(v.dashboardId)),
+        dataSources: dataSourcesToExport,
     };
 
     const jsonString = JSON.stringify(dataToExport, null, 2);
@@ -390,11 +395,31 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
-  }, [dashboards, dashboardCards, variables]);
+  }, [dashboards, dashboardCards, variables, dataSources]);
 
   const importDashboards = useCallback((data: ExportData, selectedDashboardsFromFile: Dashboard[]) => {
-    const idMap = new Map<string, string>();
+    const dataSourceIdMap = new Map<string, string>();
+    const newDataSources: DataSource[] = [];
+    const existingDataSourceNames = new Set(dataSources.map(ds => ds.name));
+
+    data.dataSources?.forEach(dsFromFile => {
+        if (existingDataSourceNames.has(dsFromFile.name)) {
+            const existingDS = dataSources.find(ds => ds.name === dsFromFile.name);
+            if (existingDS) {
+                dataSourceIdMap.set(dsFromFile.id, existingDS.id);
+            }
+        } else {
+            const oldId = dsFromFile.id;
+            const newId = crypto.randomUUID();
+            dataSourceIdMap.set(oldId, newId);
+            newDataSources.push({
+                ...dsFromFile,
+                id: newId,
+            });
+        }
+    });
+
+    const dashboardIdMap = new Map<string, string>();
     const newDashboards: Dashboard[] = [];
     const newCards: ChartCardData[] = [];
     const newVariables: Variable[] = [];
@@ -402,7 +427,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
     selectedDashboardsFromFile.forEach(dashboardFromFile => {
         const oldId = dashboardFromFile.id;
         const newId = crypto.randomUUID();
-        idMap.set(oldId, newId);
+        dashboardIdMap.set(oldId, newId);
 
         newDashboards.push({
             ...dashboardFromFile,
@@ -413,30 +438,35 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
     });
 
     data.cards?.forEach(card => {
-        if (idMap.has(card.dashboardId)) {
+        if (dashboardIdMap.has(card.dashboardId)) {
+            const oldDataSourceId = card.dataSourceId;
+            const newDataSourceId = dataSourceIdMap.get(oldDataSourceId) || oldDataSourceId;
+
             newCards.push({
                 ...card,
                 id: crypto.randomUUID(),
-                dashboardId: idMap.get(card.dashboardId)!,
+                dashboardId: dashboardIdMap.get(card.dashboardId)!,
+                dataSourceId: newDataSourceId,
             });
         }
     });
     
     data.variables?.forEach(variable => {
-         if (idMap.has(variable.dashboardId)) {
+         if (dashboardIdMap.has(variable.dashboardId)) {
             newVariables.push({
                 ...variable,
                 id: crypto.randomUUID(),
-                dashboardId: idMap.get(variable.dashboardId)!,
+                dashboardId: dashboardIdMap.get(variable.dashboardId)!,
             });
         }
     });
     
+    setDataSources(prev => [...prev, ...newDataSources]);
     setDashboards(prev => [...prev, ...newDashboards]);
     setDashboardCards(prev => [...prev, ...newCards]);
     setVariables(prev => [...prev, ...newVariables]);
-    setSettingsSaveStatus('unsaved'); // The list of dashboards is a setting
-  }, []);
+    setSettingsSaveStatus('unsaved');
+  }, [dataSources]);
   
   const exportDataSources = useCallback((dataSourceIds: string[]) => {
     const dataToExport: ExportData = {
