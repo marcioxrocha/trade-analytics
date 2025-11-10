@@ -77,7 +77,13 @@
       "value": "Value",
       "none": "No variables defined for this dashboard.",
       "clearForm": "Clear Form",
-      "evaluateAsExpression": "Evaluate as JavaScript Expression"
+      "evaluateAsExpression": "Evaluate as JavaScript Expression",
+      "showOnDashboard": "Show on Dashboard",
+      "options": "Options",
+      "optionsDesc": "If options are provided, this variable will become a dropdown selector. The 'Value' field above will hold the currently selected option's value.",
+      "addOption": "Add Option",
+      "label": "Label",
+      "dashboardControls": "Dashboard Controls"
     },
     "formatting": {
       "button": "Formatting",

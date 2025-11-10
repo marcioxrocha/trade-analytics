@@ -40,12 +40,19 @@ export interface Dashboard {
   saveStatus?: SaveStatus;
 }
 
+export interface VariableOption {
+  label: string;
+  value: string;
+}
+
 export interface Variable {
-  id: string;
+  id:string;
   dashboardId: string;
   name: string;
   value: string;
   isExpression?: boolean; // Indicates if the value should be evaluated as a JS expression
+  options?: VariableOption[]; // For creating dropdowns
+  showOnDashboard?: boolean; // To show as a filter on the dashboard
 }
 
 export enum ChartType {

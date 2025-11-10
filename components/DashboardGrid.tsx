@@ -35,6 +35,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
       updateDashboardName,
       reorderDashboardCards,
       variables,
+      updateVariable,
       updateAllVariables,
       syncDashboards,
       apiConfig,
@@ -77,6 +78,8 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
         }
         return [...userVars, ...fixedVars];
     }, [variables, activeDashboardId, department, owner]);
+    
+    const visibleVariables = useMemo(() => activeDashboardVariables.filter(v => v.showOnDashboard && !v.isExpression), [activeDashboardVariables]);
 
     const finalDashboardName = useMemo(() => {
         if (!activeDashboard) return t('dashboard.noDashboardsTitle');
@@ -318,6 +321,13 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
         setIsExportImportModalOpen(false);
     };
 
+    const handleVariableChange = (variableId: string, newValue: string) => {
+        const variableToUpdate = variables.find(v => v.id === variableId);
+        if (variableToUpdate) {
+            updateVariable({ ...variableToUpdate, value: newValue });
+        }
+    };
+
     return (
         <div>
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -422,6 +432,39 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
                 )}
             </div>
 
+            {activeDashboard && visibleVariables.length > 0 && (
+                <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg border dark:border-gray-700">
+                    <h2 className="text-base font-semibold mb-3 text-gray-600 dark:text-gray-300">{t('dashboard.variables.dashboardControls')}</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        {visibleVariables.map(v => (
+                            <div key={v.id}>
+                                <label htmlFor={`var-control-${v.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 truncate mb-1">{v.name}</label>
+                                {(v.options && v.options.length > 0) ? (
+                                    <select
+                                        id={`var-control-${v.id}`}
+                                        value={v.value}
+                                        onChange={(e) => handleVariableChange(v.id, e.target.value)}
+                                        className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+                                    >
+                                        {v.options.map(opt => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        id={`var-control-${v.id}`}
+                                        type="text"
+                                        value={v.value}
+                                        onChange={(e) => handleVariableChange(v.id, e.target.value)}
+                                        className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {activeDashboard ? (
                 <div
                     ref={dashboardGridRef}
@@ -476,6 +519,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
                     isOpen={isVariablesModalOpen}
                     onClose={handleCancelVariables}
                     title={activeDashboard ? t('dashboard.variables.manageTitleScoped', { name: activeDashboard.name }) : ''}
+                    size="3xl"
                     footer={
                         <>
                             <button onClick={handleCancelVariables} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-md">{t('modal.cancel')}</button>

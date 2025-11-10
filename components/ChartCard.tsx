@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
@@ -58,7 +59,11 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
         
         if (isTimeSeries && processedData.length > 0) {
             processedData = processedData.map(item => {
-                const dateValue = item[card.categoryKey];
+                let dateValue = item[card.categoryKey];
+                // FIX: If it's a date-only string, treat it as UTC midnight to prevent timezone shifts.
+                if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+                    dateValue = `${dateValue}T00:00:00Z`;
+                }
                 const timestamp = new Date(dateValue).getTime();
                 return {
                     ...item,

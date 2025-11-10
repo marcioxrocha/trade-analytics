@@ -77,7 +77,13 @@
       "value": "Valor",
       "none": "Nenhuma variável definida para este painel.",
       "clearForm": "Limpar",
-      "evaluateAsExpression": "Avaliar como Expressão JavaScript"
+      "evaluateAsExpression": "Avaliar como Expressão JavaScript",
+      "showOnDashboard": "Mostrar no Painel",
+      "options": "Opções",
+      "optionsDesc": "Se opções forem fornecidas, esta variável se tornará um seletor suspenso. O campo 'Valor' acima conterá o valor da opção atualmente selecionada.",
+      "addOption": "Adicionar Opção",
+      "label": "Rótulo",
+      "dashboardControls": "Controles do Painel"
     },
     "formatting": {
       "button": "Formatação",

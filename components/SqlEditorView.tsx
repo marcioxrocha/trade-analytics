@@ -715,6 +715,7 @@ Only return the SQL query, with no other text, explanation, or markdown formatti
                     isOpen={isVariablesModalOpen}
                     onClose={handleCancelVariables}
                     title={activeDashboard ? t('dashboard.variables.manageTitleScoped', { name: activeDashboard.name }) : ''}
+                    size="3xl"
                     footer={
                         <>
                             <button onClick={handleCancelVariables} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-md">{t('modal.cancel')}</button>

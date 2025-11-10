@@ -1,3 +1,4 @@
+
 import { DashboardFormattingSettings, ColumnDataType } from '../types';
 
 export const DEFAULT_FORMATTING_SETTINGS: DashboardFormattingSettings = {
@@ -82,17 +83,22 @@ function formatDateInternal(
 ): string {
     const config = { ...DEFAULT_FORMATTING_SETTINGS, ...settings };
     try {
-        const date = new Date(dateString);
+        let adjustedDateString = dateString;
+        // FIX: If it looks like a date-only string (YYYY-MM-DD), append UTC time to avoid timezone issues.
+        if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+            adjustedDateString = `${dateString}T00:00:00Z`;
+        }
+        const date = new Date(adjustedDateString);
         if (isNaN(date.getTime())) return dateString;
 
         const formatString = format === 'date' ? config.dateFormat : config.dateTimeFormat;
 
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const seconds = String(date.getSeconds()).padStart(2, '0');
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
 
         return formatString
             .replace(/YYYY/g, String(year))

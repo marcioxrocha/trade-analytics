@@ -1,18 +1,31 @@
 import React from 'react';
 import Icon from './Icon';
 
+type ModalSize = 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  size?: ModalSize;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
   if (!isOpen) {
     return null;
   }
+
+  const sizeClasses: Record<ModalSize, string> = {
+    md: 'max-w-md',
+    lg: 'max-w-lg',
+    xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
+    '3xl': 'max-w-3xl',
+    '4xl': 'max-w-4xl',
+    '5xl': 'max-w-5xl',
+  };
 
   return (
     <div
@@ -23,7 +36,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer 
       onClick={onClose}
     >
       <div
-        className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md m-4 transform transition-all"
+        className={`relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full m-4 transform transition-all ${sizeClasses[size]}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between p-4 border-b rounded-t dark:border-gray-600">
