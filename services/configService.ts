@@ -9,26 +9,33 @@ interface RequestContext {
     owner?: string;
 }
 
-// LocalStorage key for offline/demo fallback.
-const LOCAL_STORAGE_KEY = 'analytics_builder_config';
+const LOCAL_STORAGE_PREFIX = 'analytics_builder_';
 
 // --- LocalStorage Helper Functions (for fallback/demo purposes) ---
 
-const getLocalStoredConfig = (): Record<string, any> => {
+const getLocalItem = <T>(key: string): T | null => {
     try {
-        const data = localStorage.getItem(LOCAL_STORAGE_KEY);
-        return data ? JSON.parse(data) : {};
+        const data = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}${key}`);
+        return data ? JSON.parse(data) : null;
     } catch (error) {
-        console.error("Failed to read data from localStorage", error);
-        return {};
+        console.error(`Failed to read '${key}' from localStorage`, error);
+        return null;
     }
 };
 
-const setLocalStoredConfig = (config: Record<string, any>) => {
+const setLocalItem = <T>(key: string, value: T) => {
     try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
+        localStorage.setItem(`${LOCAL_STORAGE_PREFIX}${key}`, JSON.stringify(value));
     } catch (error) {
-        console.error("Failed to save data to localStorage", error);
+        console.error(`Failed to save '${key}' to localStorage`, error);
+    }
+};
+
+const deleteLocalItem = (key: string) => {
+    try {
+        localStorage.removeItem(`${LOCAL_STORAGE_PREFIX}${key}`);
+    } catch (error) {
+        console.error(`Failed to delete '${key}' from localStorage`, error);
     }
 };
 
@@ -52,10 +59,16 @@ const createSupabaseClient = async (apiConfig: ApiConfig) => {
  * @param value The value to save.
  */
 export const setConfigLocal = <T>(key: string, value: T): void => {
-    const allConfig = getLocalStoredConfig();
-    allConfig[key] = value;
-    setLocalStoredConfig(allConfig);
+    setLocalItem(key, value);
 }
+
+/**
+ * Deletes a configuration value locally.
+ * @param key The key of the configuration to delete.
+ */
+export const deleteConfigLocal = (key: string): void => {
+    deleteLocalItem(key);
+};
 
 
 /**
@@ -83,14 +96,19 @@ export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: 
             if (department) query = query.eq('department', department); else query = query.is('department', null);
             if (owner) query = query.eq('owner', owner); else query = query.is('owner', null);
             
-            const { data, error } = await query.single();
+            // Use .maybeSingle() to prevent an error when 0 rows are returned.
+            // It will return { data: null, error: null } in that case.
+            const { data, error } = await query.maybeSingle();
 
-            if (error && error.code !== 'PGRST116') { // PGRST116 is "exact one row not found"
+            if (error) {
+                // If there's any other error (RLS, connection, etc.), throw it to the catch block.
                 throw new Error(error.message);
             }
-            if (data) {
-                return data.value as T;
-            }
+            
+            // If we reach here successfully, we should return the result from Supabase
+            // (either the data or null) and not fall back to other storage methods.
+            return data ? (data.value as T) : null;
+            
         } catch (error) {
             console.warn(`Supabase getConfig failed, falling back. Error:`, error);
         }
@@ -131,9 +149,60 @@ export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: 
     }
     
     // 3. Fallback to localStorage.
-    const allConfig = getLocalStoredConfig();
-    return (allConfig[key] as T) || null;
+    return getLocalItem<T>(key);
 };
+
+/**
+ * Fetches all configuration values where the key matches a given prefix.
+ * @param prefix The prefix to match keys against (e.g., "dashboard:").
+ * @param apiConfig The instance-specific API configuration.
+ * @returns A promise resolving to an array of configuration values.
+ */
+export const getConfigsByPrefix = async <T>(prefix: string, apiConfig: ApiConfig, context?: RequestContext): Promise<T[]> => {
+    // 1. Try Supabase first
+    const supabase = await createSupabaseClient(apiConfig);
+    if (supabase) {
+        try {
+            let query = supabase
+                .from(SUPABASE_TABLE_NAME)
+                .select('value')
+                .like('key', `${prefix}%`); // Use LIKE for prefix matching
+
+            const tenantId = apiConfig.TENANT_ID || null;
+            const department = context?.department || null;
+            const owner = context?.owner || null;
+
+            if (tenantId) query = query.eq('tenant_id', tenantId); else query = query.is('tenant_id', null);
+            if (department) query = query.eq('department', department); else query = query.is('department', null);
+            if (owner) query = query.eq('owner', owner); else query = query.is('owner', null);
+
+            const { data, error } = await query;
+
+            if (error) throw new Error(error.message);
+            
+            return data ? data.map(item => item.value as T) : [];
+        } catch (error) {
+            console.warn(`Supabase getConfigsByPrefix failed, falling back. Error:`, error);
+        }
+    }
+
+    // 2. Custom API is not supported for prefix search in this implementation.
+    
+    // 3. Fallback to localStorage.
+    const results: T[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const storageKey = localStorage.key(i);
+        if (storageKey && storageKey.startsWith(`${LOCAL_STORAGE_PREFIX}${prefix}`)) {
+            const appKey = storageKey.substring(LOCAL_STORAGE_PREFIX.length);
+            const item = getLocalItem<T>(appKey);
+            if (item) {
+                results.push(item);
+            }
+        }
+    }
+    return results;
+};
+
 
 /**
  * Saves a configuration value for a given key to the backend and syncs it to local storage.
@@ -145,7 +214,7 @@ export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: 
  */
 export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, context?: RequestContext): Promise<'remote' | 'local'> => {
     const updateLocalStorage = () => {
-        setConfigLocal(key, value);
+        setLocalItem(key, value);
     };
 
     // 1. Try Supabase first
@@ -233,4 +302,43 @@ export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, 
     // 3. Fallback for setups without a remote backend: still save locally.
     updateLocalStorage();
     return 'local';
+};
+
+/**
+ * Deletes a configuration value from the backend and local storage.
+ * @param key The key of the configuration to delete.
+ * @param apiConfig The instance-specific API configuration.
+ */
+export const deleteConfig = async (key: string, apiConfig: ApiConfig, context?: RequestContext): Promise<void> => {
+    deleteLocalItem(key);
+
+    const supabase = await createSupabaseClient(apiConfig);
+    if (supabase) {
+        try {
+            let query = supabase
+                .from(SUPABASE_TABLE_NAME)
+                .delete()
+                .eq('key', key);
+            
+            const tenantId = apiConfig.TENANT_ID || null;
+            const department = context?.department || null;
+            const owner = context?.owner || null;
+
+            if (tenantId) query = query.eq('tenant_id', tenantId); else query = query.is('tenant_id', null);
+            if (department) query = query.eq('department', department); else query = query.is('department', null);
+            if (owner) query = query.eq('owner', owner); else query = query.is('owner', null);
+
+            const { error } = await query;
+            if (error) throw error;
+            return;
+        } catch (error) {
+            console.error(`Supabase deleteConfig failed. Error:`, error);
+            throw error;
+        }
+    }
+    
+    if (apiConfig.CONFIG_API_URL) {
+        // This would require a DELETE method on the backend, which is not assumed.
+        console.warn('deleteConfig with custom API URL is not implemented.');
+    }
 };

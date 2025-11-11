@@ -1,11 +1,19 @@
 // Keys for storing configurations via configService
-export const DASHBOARDS_KEY = 'dashboards';
 export const DATA_SOURCES_KEY = 'dataSources';
-export const DASHBOARD_CARD_CONFIGS_KEY = 'dashboardCardConfigs';
-export const VARIABLES_KEY = 'dashboardVariables';
 export const WHITE_LABEL_KEY = 'whiteLabelSettings';
 export const APP_SETTINGS_KEY = 'appSettings';
 export const LAST_ACTIVE_DASHBOARD_ID_KEY = 'analytics_builder_last_active_dashboard';
+
+// Prefixes for granular configuration keys
+export const DASHBOARD_CONFIG_PREFIX = 'dashboard:';
+export const DASHBOARD_CARDS_PREFIX = 'dashboardCards:';
+export const DASHBOARD_VARIABLES_PREFIX = 'dashboardVariables:';
+
+// OLD Monolithic Keys (for backward compatibility)
+export const OLD_DASHBOARDS_KEY = 'dashboards';
+export const OLD_CARDS_KEY = 'dashboardCardConfigs';
+export const OLD_VARIABLES_KEY = 'dashboardVariables';
+
 
 export const CHART_COLORS = {
   main: '#4f46e5',
