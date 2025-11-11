@@ -31,6 +31,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
   const { t, isReady: isLangReady } = useLanguage();
   const { apiConfig } = useApi();
 
+  const hasUnsyncedChanges = useMemo(() => {
+    const hasUnsyncedDashboards = dashboards.some(d => ['unsaved', 'saved-local'].includes(d.saveStatus || 'idle'));
+    const hasUnsyncedSettings = ['unsaved', 'saved-local'].includes(settingsSaveStatus);
+    return hasUnsyncedDashboards || hasUnsyncedSettings;
+  }, [dashboards, settingsSaveStatus]);
+
   // Effect to load all data from persistence, runs only once.
   useEffect(() => {
     const loadInitialData = async () => {
@@ -107,45 +113,73 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
     }, [activeDashboardId, isLoading]);
 
 
-  const syncDashboards = useCallback(async (): Promise<void> => {
+  const syncAllChanges = useCallback(async (): Promise<void> => {
     const dashboardIdsToSync = dashboards
         .filter(d => ['unsaved', 'saved-local'].includes(d.saveStatus || 'idle'))
         .map(d => d.id);
-    
-    setDashboards(prev => prev.map(d => dashboardIdsToSync.includes(d.id) ? { ...d, saveStatus: 'syncing' } : d));
+    const isSettingsSyncNeeded = ['unsaved', 'saved-local'].includes(settingsSaveStatus);
+
+    if (dashboardIdsToSync.length === 0 && !isSettingsSyncNeeded) {
+        return; // Nothing to sync
+    }
+
+    // Set all pending items to 'syncing' status
+    if (dashboardIdsToSync.length > 0) {
+        setDashboards(prev => prev.map(d => dashboardIdsToSync.includes(d.id) ? { ...d, saveStatus: 'syncing' } : d));
+    }
+    if (isSettingsSyncNeeded) {
+        setSettingsSaveStatus('syncing');
+    }
 
     try {
+        // Sync all configuration keys at once
         await Promise.all([
             setConfig(DASHBOARDS_KEY, dashboards, apiConfig, { department, owner }),
             setConfig(DASHBOARD_CARD_CONFIGS_KEY, dashboardCards, apiConfig, { department, owner }),
             setConfig(VARIABLES_KEY, variables, apiConfig, { department, owner }),
-        ]);
-        setDashboards(prev => prev.map(d => dashboardIdsToSync.includes(d.id) ? { ...d, saveStatus: 'saved-remote' } : d));
-    } catch (error) {
-        console.error("Failed to sync dashboard changes with server:", error);
-        setDashboards(prev => prev.map(d => dashboardIdsToSync.includes(d.id) ? { ...d, saveStatus: 'saved-local' } : d));
-        throw new Error(t('modal.saveError')); // re-throw for UI
-    }
-  }, [dashboards, dashboardCards, variables, t, apiConfig, department, owner]);
-  
-  const syncSettings = useCallback(async (): Promise<void> => {
-    setSettingsSaveStatus('syncing');
-    try {
-        await Promise.all([
             setConfig(DATA_SOURCES_KEY, dataSources, apiConfig, { department, owner }),
             setConfig(WHITE_LABEL_KEY, whiteLabelSettings, apiConfig, { department, owner }),
             setConfig(APP_SETTINGS_KEY, { autoSave: autoSaveEnabled }, apiConfig),
-            // Sync dashboards array as it's a setting, but don't alter individual save statuses
-            setConfig(DASHBOARDS_KEY, dashboards, apiConfig, { department, owner }),
         ]);
-        setSettingsSaveStatus('saved-remote');
+        
+        // On success, set statuses to 'saved-remote'
+        if (dashboardIdsToSync.length > 0) {
+            setDashboards(prev => prev.map(d => dashboardIdsToSync.includes(d.id) ? { ...d, saveStatus: 'saved-remote' } : d));
+        }
+        if (isSettingsSyncNeeded) {
+            setSettingsSaveStatus('saved-remote');
+        }
+
     } catch (error) {
-        console.error("Failed to sync settings changes with server:", error);
-        setSettingsSaveStatus('saved-local');
+        console.error("Failed to sync all changes with server:", error);
+        
+        // On failure, revert to 'saved-local' to allow retrying
+        if (dashboardIdsToSync.length > 0) {
+            setDashboards(prev => prev.map(d => dashboardIdsToSync.includes(d.id) ? { ...d, saveStatus: 'saved-local' } : d));
+        }
+        if (isSettingsSyncNeeded) {
+            setSettingsSaveStatus('saved-local');
+        }
+        
         throw new Error(t('modal.saveError'));
     }
-  }, [dataSources, whiteLabelSettings, autoSaveEnabled, dashboards, t, apiConfig, department, owner]);
-
+  }, [
+      dashboards, 
+      dashboardCards, 
+      variables, 
+      settingsSaveStatus, 
+      dataSources, 
+      whiteLabelSettings, 
+      autoSaveEnabled, 
+      t, 
+      apiConfig, 
+      department, 
+      owner
+  ]);
+  
+  const syncDashboards = syncAllChanges;
+  const syncSettings = syncAllChanges;
+  
   const saveToLocal = useCallback(() => {
     try {
         setConfigLocal(DATA_SOURCES_KEY, dataSources);
@@ -582,13 +616,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
     instanceKey,
     department,
     owner,
+    hasUnsyncedChanges,
   }), [
     dataSources, dashboards, variables, activeDashboardId, dashboardCards, whiteLabelSettings,
     addDataSource, updateDataSource, removeDataSource, addDashboard, duplicateDashboard, removeDashboard, 
     memoizedSetActiveDashboardId, updateDashboardName, updateActiveDashboardSettings, updateWhiteLabelSettings, addCard, 
     cloneCard, updateCard, removeCard, reorderDashboardCards, addVariable, updateVariable, removeVariable,
     updateAllVariables, exportDashboards, importDashboards, exportDataSources, importDataSources, isLoading, settingsSaveStatus, syncDashboards, syncSettings, autoSaveEnabled, toggleAutoSave, formattingVersion,
-    apiConfig, instanceKey, department, owner
+    apiConfig, instanceKey, department, owner, hasUnsyncedChanges
   ]);
 
   return (

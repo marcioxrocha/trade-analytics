@@ -42,6 +42,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
       updateActiveDashboardSettings,
       exportDashboards,
       importDashboards,
+      hasUnsyncedChanges,
     } = useAppContext();
     const { showModal, hideModal } = useDashboardModal();
     
@@ -64,7 +65,6 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
     
     const activeDashboard = dashboards.find(d => d.id === activeDashboardId);
     const cardsForActiveDashboard = dashboardCards.filter(card => card.dashboardId === activeDashboardId);
-    const hasUnsyncedDashboards = dashboards.some(d => ['unsaved', 'saved-local'].includes(d.saveStatus || 'idle'));
     
     const activeDashboardVariables = useMemo(() => {
         if (!activeDashboardId) return [];
@@ -369,10 +369,10 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
                             {isMenuOpen && (
                                 <div className="absolute right-0 mt-2 w-56 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
                                     <div className="py-1">
-                                        {apiConfig.CONFIG_API_URL && (
+                                        {(apiConfig.CONFIG_API_URL || apiConfig.CONFIG_SUPABASE_URL) && (
                                             <button
                                                 onClick={handleConfirmSync}
-                                                disabled={!hasUnsyncedDashboards}
+                                                disabled={!hasUnsyncedChanges}
                                                 className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 <Icon name="cloud_done" className="w-4 h-4" />

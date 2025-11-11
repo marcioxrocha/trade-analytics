@@ -35,6 +35,7 @@ const SettingsView: React.FC = () => {
         apiConfig,
         exportDataSources,
         importDataSources,
+        hasUnsyncedChanges,
     } = useAppContext();
     const { showModal, hideModal } = useDashboardModal();
     
@@ -209,10 +210,10 @@ const SettingsView: React.FC = () => {
                     <h1 className="text-3xl font-bold text-gray-800 dark:text-white">{t('settings.title')}</h1>
                     <SaveStatusIndicator status={settingsSaveStatus} />
                 </div>
-                {apiConfig.CONFIG_API_URL && (
+                {(apiConfig.CONFIG_API_URL || apiConfig.CONFIG_SUPABASE_URL) && (
                     <button
                         onClick={handleConfirmSync}
-                        disabled={!['unsaved', 'saved-local'].includes(settingsSaveStatus)}
+                        disabled={!hasUnsyncedChanges}
                         className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white btn-brand rounded-md shadow disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Icon name="cloud_done" className="w-5 h-5" />

@@ -149,6 +149,7 @@ export interface AppContextType {
   instanceKey?: string;
   department?: string;
   owner?: string;
+  hasUnsyncedChanges: boolean;
 }
 
 
