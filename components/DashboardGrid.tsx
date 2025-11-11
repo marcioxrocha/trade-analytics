@@ -1,4 +1,5 @@
 
+
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import DashboardCard from './DashboardCard';
 import Icon from './Icon';
@@ -45,6 +46,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
       importDashboards,
       hasUnsyncedChanges,
       isLoading,
+      allowDashboardManagement,
     } = useAppContext();
     const { showModal, hideModal } = useDashboardModal();
     
@@ -357,18 +359,18 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
                         />
                     ) : (
                          <h1
-                            onClick={() => activeDashboard && setIsEditingName(true)}
-                            className="text-3xl font-bold text-gray-800 dark:text-white truncate flex items-center gap-2 cursor-pointer"
-                            title={t('dashboard.editNameTooltip')}
+                            onClick={() => activeDashboard && allowDashboardManagement && setIsEditingName(true)}
+                            className={`text-3xl font-bold text-gray-800 dark:text-white truncate flex items-center gap-2 ${allowDashboardManagement ? 'cursor-pointer' : 'cursor-default'}`}
+                            title={allowDashboardManagement ? t('dashboard.editNameTooltip') : ''}
                         >
                             {finalDashboardName}
-                            {activeDashboard && <Icon name="edit" className="w-5 h-5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                            {activeDashboard && allowDashboardManagement && <Icon name="edit" className="w-5 h-5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
                         </h1>
                     )}
                     {activeDashboard && <SaveStatusIndicator status={activeDashboard.saveStatus || 'idle'} />}
                 </div>
                 
-                 {activeDashboard && (
+                {activeDashboard && (
                     <div className="flex items-center gap-2">
                         <button onClick={handleOpenDashboardSelector} className="flex items-center gap-2 px-3 py-2 rounded-md bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors text-sm font-medium border dark:border-gray-600">
                             <Icon name="search" className="w-4 h-4" />
@@ -381,24 +383,6 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
                             {isMenuOpen && (
                                 <div className="absolute right-0 mt-2 w-56 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
                                     <div className="py-1">
-                                        {(apiConfig.CONFIG_API_URL || apiConfig.CONFIG_SUPABASE_URL) && (
-                                            <button
-                                                onClick={handleConfirmSync}
-                                                disabled={!hasUnsyncedChanges}
-                                                className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <Icon name="cloud_done" className="w-4 h-4" />
-                                                {t('dashboard.syncChanges')}
-                                            </button>
-                                        )}
-                                         <button
-                                            onClick={handleSaveAs}
-                                            className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                        >
-                                            <Icon name="save_as" className="w-4 h-4" />
-                                            {t('dashboard.saveAs')}
-                                        </button>
-                                        <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
                                         <button
                                             onClick={handleOpenExportModal}
                                             className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -406,36 +390,59 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
                                             <Icon name="download" className="w-4 h-4" />
                                             {t('dashboard.exportDashboards')}
                                         </button>
-                                        <button
-                                            onClick={handleOpenImportModal}
-                                            className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                        >
-                                            <Icon name="upload_file" className="w-4 h-4" />
-                                            {t('dashboard.importDashboards')}
-                                        </button>
-                                        <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
-                                        <button
-                                            onClick={handleOpenVariablesModal}
-                                            className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                        >
-                                            <Icon name="variables" className="w-4 h-4" />
-                                            {t('dashboard.variables.button')}
-                                        </button>
-                                        <button
-                                            onClick={handleOpenFormattingModal}
-                                            className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                        >
-                                            <Icon name="settings" className="w-4 h-4" />
-                                            {t('dashboard.formatting.button')}
-                                        </button>
-                                        <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
-                                        <button
-                                            onClick={handleRemoveCurrentDashboard}
-                                            className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40"
-                                        >
-                                            <Icon name="close" className="w-4 h-4" />
-                                            {t('dashboard.deleteDashboard')}
-                                        </button>
+
+                                        {allowDashboardManagement && (
+                                            <>
+                                                <button
+                                                    onClick={handleOpenImportModal}
+                                                    className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                >
+                                                    <Icon name="upload_file" className="w-4 h-4" />
+                                                    {t('dashboard.importDashboards')}
+                                                </button>
+                                                <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+                                                {(apiConfig.CONFIG_API_URL || apiConfig.CONFIG_SUPABASE_URL) && (
+                                                    <button
+                                                        onClick={handleConfirmSync}
+                                                        disabled={!hasUnsyncedChanges}
+                                                        className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        <Icon name="cloud_done" className="w-4 h-4" />
+                                                        {t('dashboard.syncChanges')}
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={handleSaveAs}
+                                                    className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                >
+                                                    <Icon name="save_as" className="w-4 h-4" />
+                                                    {t('dashboard.saveAs')}
+                                                </button>
+                                                <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+                                                <button
+                                                    onClick={handleOpenVariablesModal}
+                                                    className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                >
+                                                    <Icon name="variables" className="w-4 h-4" />
+                                                    {t('dashboard.variables.button')}
+                                                </button>
+                                                <button
+                                                    onClick={handleOpenFormattingModal}
+                                                    className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                >
+                                                    <Icon name="settings" className="w-4 h-4" />
+                                                    {t('dashboard.formatting.button')}
+                                                </button>
+                                                <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+                                                <button
+                                                    onClick={handleRemoveCurrentDashboard}
+                                                    className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40"
+                                                >
+                                                    <Icon name="close" className="w-4 h-4" />
+                                                    {t('dashboard.deleteDashboard')}
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             )}

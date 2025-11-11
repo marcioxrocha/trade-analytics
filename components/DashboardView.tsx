@@ -11,12 +11,29 @@ interface DashboardViewProps {
   instanceKey?: string;
   department?: string;
   owner?: string;
+  allowDashboardManagement?: boolean;
+  allowDataSourceManagement?: boolean;
+  showInfoScreen?: boolean;
 }
 
-const DashboardView: React.FC<DashboardViewProps> = ({ instanceKey, department, owner }) => {
+const DashboardView: React.FC<DashboardViewProps> = ({ 
+    instanceKey, 
+    department, 
+    owner,
+    allowDashboardManagement = true,
+    allowDataSourceManagement = true,
+    showInfoScreen = true,
+}) => {
     return (
         <ApiProvider instanceKey={instanceKey}>
-            <AppProvider instanceKey={instanceKey} department={department} owner={owner}>
+            <AppProvider 
+                instanceKey={instanceKey} 
+                department={department} 
+                owner={owner}
+                allowDashboardManagement={allowDashboardManagement}
+                allowDataSourceManagement={allowDataSourceManagement}
+                showInfoScreen={showInfoScreen}
+            >
                 <DashboardModalProvider>
                     <DashboardViewContent instanceKey={instanceKey} department={department} owner={owner}/>
                     <ModalRenderer />

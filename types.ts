@@ -155,6 +155,9 @@ export interface AppContextType {
   department?: string;
   owner?: string;
   hasUnsyncedChanges: boolean;
+  allowDashboardManagement: boolean;
+  allowDataSourceManagement: boolean;
+  showInfoScreen: boolean;
 }
 
 

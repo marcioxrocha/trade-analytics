@@ -13,9 +13,20 @@ interface AppProviderProps {
     instanceKey?: string;
     department?: string;
     owner?: string;
+    allowDashboardManagement?: boolean;
+    allowDataSourceManagement?: boolean;
+    showInfoScreen?: boolean;
 }
 
-export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey, department, owner }) => {
+export const AppProvider: React.FC<AppProviderProps> = ({ 
+    children, 
+    instanceKey, 
+    department, 
+    owner,
+    allowDashboardManagement = true,
+    allowDataSourceManagement = true,
+    showInfoScreen = true,
+}) => {
   // App State
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
@@ -659,13 +670,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, instanceKey,
     department,
     owner,
     hasUnsyncedChanges,
+    allowDashboardManagement,
+    allowDataSourceManagement,
+    showInfoScreen,
   }), [
     dataSources, dashboards, variables, activeDashboardId, dashboardCards, whiteLabelSettings,
     addDataSource, updateDataSource, removeDataSource, addDashboard, duplicateDashboard, removeDashboard, 
     memoizedSetActiveDashboardId, updateDashboardName, updateActiveDashboardSettings, updateWhiteLabelSettings, addCard, 
     cloneCard, updateCard, removeCard, reorderDashboardCards, addVariable, updateVariable, removeVariable,
     updateAllVariables, exportDashboards, importDashboards, exportDataSources, importDataSources, isLoading, settingsSaveStatus, syncDashboards, syncSettings, autoSaveEnabled, toggleAutoSave, formattingVersion,
-    apiConfig, instanceKey, department, owner, hasUnsyncedChanges
+    apiConfig, instanceKey, department, owner, hasUnsyncedChanges, allowDashboardManagement, allowDataSourceManagement, showInfoScreen
   ]);
 
   return (

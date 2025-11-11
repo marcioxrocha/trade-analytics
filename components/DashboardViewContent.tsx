@@ -19,6 +19,9 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
     const { 
         addDashboard,
         whiteLabelSettings,
+        allowDashboardManagement,
+        allowDataSourceManagement,
+        showInfoScreen,
     } = useAppContext();
     const { showModal, hideModal } = useDashboardModal();
     const { t } = useLanguage();
@@ -91,12 +94,28 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
         setTimeout(() => modalInputRef.current?.focus(), 100);
     };
 
-    const navItems: { view: View; labelKey: string }[] = [
-        { view: 'dashboard', labelKey: 'sidebar.dashboards' },
-        { view: 'query-editor', labelKey: 'sidebar.queryEditor' },
-        { view: 'settings', labelKey: 'sidebar.settings' },
-        { view: 'env-variables', labelKey: 'sidebar.envVars' },
-    ];
+    const navItems = useMemo(() => {
+        const items: { view: View; labelKey: string }[] = [
+            { view: 'dashboard', labelKey: 'sidebar.dashboards' },
+        ];
+        if (allowDashboardManagement) {
+             items.push({ view: 'query-editor', labelKey: 'sidebar.queryEditor' });
+        }
+        if (allowDashboardManagement || allowDataSourceManagement) {
+            items.push({ view: 'settings', labelKey: 'sidebar.settings' });
+        }
+        if (showInfoScreen) {
+            items.push({ view: 'env-variables', labelKey: 'sidebar.envVars' });
+        }
+        return items;
+    }, [allowDashboardManagement, allowDataSourceManagement, showInfoScreen]);
+
+    useEffect(() => {
+        // If the current view is no longer allowed due to permission changes, switch back to the dashboard.
+        if (!navItems.some(item => item.view === currentView)) {
+            setCurrentView('dashboard');
+        }
+    }, [navItems, currentView]);
     
     const brandStyles = useMemo(() => `
         .btn-brand {
@@ -116,29 +135,33 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
         }
     `, [whiteLabelSettings.brandColor]);
     
+    const isReadOnly = !allowDashboardManagement && !allowDataSourceManagement && !showInfoScreen;
+
     return (
         <div className="flex flex-col h-full w-full relative">
             <style>{brandStyles}</style>
-            <header className="flex-shrink-0 bg-white dark:bg-gray-800 shadow-md p-2 flex items-center justify-between z-10">
-                <nav className="flex items-center gap-1 sm:gap-2">
-                    {navItems.map(item => (
-                        <button
-                            key={item.view}
-                            onClick={() => item.view === 'query-editor' ? handleAddCard() : handleNavigate(item.view)}
-                            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${currentView === item.view ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                        >
-                            {t(item.labelKey)}
-                        </button>
-                    ))}
-                </nav>
-            </header>
+            {!isReadOnly && (
+                <header className="flex-shrink-0 bg-white dark:bg-gray-800 shadow-md p-2 flex items-center justify-between z-10">
+                    <nav className="flex items-center gap-1 sm:gap-2">
+                        {navItems.map(item => (
+                            <button
+                                key={item.view}
+                                onClick={() => item.view === 'query-editor' ? handleAddCard() : handleNavigate(item.view)}
+                                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${currentView === item.view ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                            >
+                                {t(item.labelKey)}
+                            </button>
+                        ))}
+                    </nav>
+                </header>
+            )}
             <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-auto">
                 {currentView === 'dashboard' && <DashboardGrid onEditCard={handleEditCard} onAddCard={handleAddCard} onAddNewDashboard={handleAddNewDashboard} department={department} owner={owner} />}
                 {currentView === 'query-editor' && <QueryEditorView editingCardId={editingCardId} onFinishEditing={handleFinishEditing} department={department} owner={owner} />}
                 {currentView === 'settings' && <SettingsView />}
                 {currentView === 'env-variables' && <EnvironmentVariablesView department={department} owner={owner} />}
             </div>
-             {currentView === 'dashboard' && (
+             {currentView === 'dashboard' && allowDashboardManagement && (
                 <div
                     ref={fabContainerRef}
                     className="fixed bottom-6 right-6 z-20 flex flex-col items-center"

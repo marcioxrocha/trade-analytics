@@ -38,7 +38,14 @@ const AuthenticatedApp: React.FC<AuthenticatedAppProps> = ({ user }) => {
       </header>
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-x-hidden overflow-y-auto">
-          <DashboardView instanceKey="main" department="Sales" owner="j.doe" />
+          <DashboardView 
+            instanceKey="main" 
+            department="Sales" 
+            owner="j.doe" 
+            allowDashboardManagement={false}
+            allowDataSourceManagement={false}
+            showInfoScreen={false}
+            />
         </main>
       </div>
     </div>

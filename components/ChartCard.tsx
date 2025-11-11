@@ -24,7 +24,7 @@ interface ChartCardProps {
 
 const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemove, onEdit, onClone, onExport, isLoading, error }) => {
     const { t } = useLanguage();
-    const { whiteLabelSettings } = useAppContext();
+    const { whiteLabelSettings, allowDashboardManagement } = useAppContext();
     const brandColor = whiteLabelSettings?.brandColor || DEFAULT_BRAND_COLOR;
     const [highlightedDataKeys, setHighlightedDataKeys] = useState<string[]>([]);
     const isSpacer = card.type === ChartType.SPACER;
@@ -411,20 +411,24 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
                   <Icon name="export" className="w-4 h-4" />
               </button>
             )}
-            {onClone && (
-                <button onClick={() => onClone(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-green-500 hover:text-white" aria-label={t('chartCard.cloneCardLabel')}>
-                    <Icon name="save_as" className="w-4 h-4" />
-                </button>
-            )}
-            {onEdit && (
-                <button onClick={() => onEdit(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-yellow-500 hover:text-white" aria-label={t('chartCard.editCardLabel')}>
-                    <Icon name="edit" className="w-4 h-4" />
-                </button>
-            )}
-            {onRemove && (
-                <button onClick={() => onRemove(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-red-500 hover:text-white" aria-label={t('chartCard.removeCardLabel')}>
-                    <Icon name="close" className="w-4 h-4" />
-                </button>
+            {allowDashboardManagement && (
+                <>
+                    {onClone && (
+                        <button onClick={() => onClone(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-green-500 hover:text-white" aria-label={t('chartCard.cloneCardLabel')}>
+                            <Icon name="save_as" className="w-4 h-4" />
+                        </button>
+                    )}
+                    {onEdit && (
+                        <button onClick={() => onEdit(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-yellow-500 hover:text-white" aria-label={t('chartCard.editCardLabel')}>
+                            <Icon name="edit" className="w-4 h-4" />
+                        </button>
+                    )}
+                    {onRemove && (
+                        <button onClick={() => onRemove(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-red-500 hover:text-white" aria-label={t('chartCard.removeCardLabel')}>
+                            <Icon name="close" className="w-4 h-4" />
+                        </button>
+                    )}
+                </>
             )}
         </div>
       <div className="flex-grow flex items-center justify-center min-h-0 relative z-10">
