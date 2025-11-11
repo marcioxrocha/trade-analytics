@@ -264,6 +264,21 @@
     "pt": "Português",
     "en": "Inglês"
   },
+  "app": {
+    "signInWithGoogle": "Entrar com Google",
+    "signingIn": "Entrando...",
+    "signOut": "Sair",
+    "welcome": "Bem-vindo(a)",
+    "loadingAuth": "Carregando...",
+    "authError": "Erro de Autenticação",
+    "authErrorDesc": "Não foi possível fazer o login. Por favor, verifique sua configuração do Firebase e tente novamente.",
+    "accessDenied": "Acesso Negado",
+    "accessDeniedDesc": "O acesso a este aplicativo foi negado porque as credenciais de autenticação necessárias (configuração do Firebase) estão ausentes. Por favor, entre em contato com o administrador.",
+    "verifyingAccess": "Verificando acesso...",
+    "emailAccessDenied": "Permissão Negada",
+    "emailAccessDeniedDesc": "Seu endereço de e-mail não está autorizado para acessar esta aplicação. Por favor, contate um administrador.",
+    "tryAgain": "Tentar Novamente"
+  },
   "envVars": {
     "title": "Informações",
     "description": "Esta página exibe as variáveis de ambiente e as propriedades do componente que configuram a conexão e o contexto de dados da aplicação.",

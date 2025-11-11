@@ -14,7 +14,6 @@ import { inferColumnTypes } from '../services/dataTypeService';
 import Modal from './Modal';
 import VariablesManager from './VariablesManager';
 import ErrorDisplay from './ErrorDisplay';
-import { GoogleGenAI } from "@google/genai";
 import { executePostProcessingScript, convertObjectArrayToQueryResult } from '../services/postProcessingService';
 
 const DATA_TYPE_OPTIONS: ColumnDataType[] = ['text', 'integer', 'decimal', 'currency', 'date', 'datetime', 'boolean'];
@@ -427,6 +426,7 @@ User Request: "${aiPrompt}"
 Only return the SQL query, with no other text, explanation, or markdown formatting.`;
 
         try {
+            const { GoogleGenAI } = await import('@google/genai');
             const ai = new GoogleGenAI({ apiKey: apiConfig.API_KEY });
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',

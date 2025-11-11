@@ -264,6 +264,21 @@
     "pt": "Portuguese",
     "en": "English"
   },
+  "app": {
+    "signInWithGoogle": "Sign in with Google",
+    "signingIn": "Signing in...",
+    "signOut": "Sign Out",
+    "welcome": "Welcome",
+    "loadingAuth": "Loading...",
+    "authError": "Authentication Error",
+    "authErrorDesc": "Could not sign in. Please check your Firebase configuration and try again.",
+    "accessDenied": "Access Denied",
+    "accessDeniedDesc": "Access to this application is denied because the required authentication credentials (Firebase configuration) are missing. Please contact the administrator.",
+    "verifyingAccess": "Verifying access...",
+    "emailAccessDenied": "Permission Denied",
+    "emailAccessDeniedDesc": "Your email address is not authorized to access this application. Please contact an administrator.",
+    "tryAgain": "Try Again"
+  },
   "envVars": {
     "title": "Information",
     "description": "This page displays the environment variables and component properties that configure the application's connection and data context.",

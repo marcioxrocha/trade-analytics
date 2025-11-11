@@ -8,6 +8,11 @@ export interface ApiConfig {
   TENANT_ID: string;
   API_KEY: string;
   API_SECRET: string;
+  FIREBASE_API_KEY: string;
+  FIREBASE_AUTH_DOMAIN: string;
+  FIREBASE_PROJECT_ID: string;
+  FIREBASE_RECAPTCHA_SITE_KEY: string;
+  AUTH_VERIFY_EMAIL_URL: string;
 }
 
 export interface RequestContext {
