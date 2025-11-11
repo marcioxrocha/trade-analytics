@@ -21,7 +21,6 @@ declare module 'https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js' {
     export interface User {
         displayName: string | null;
         photoURL: string | null;
-        // FIX: Add email property to User interface to match Firebase Auth User object.
         email: string | null;
     }
 

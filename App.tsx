@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardView from './components/DashboardView';
 import { useLanguage } from './contexts/LanguageContext';
@@ -112,7 +113,13 @@ const AuthFlow: React.FC = () => {
             setVerificationStatus('pending');
             setLoading(false); // Não estamos mais carregando a autenticação, mas sim verificando.
             try {
-              const response = await fetch(`${firebaseConfig.verifyEmailUrl}?email=${encodeURIComponent(currentUser.email!)}`);
+              let urlToVerify = firebaseConfig.verifyEmailUrl;
+              // Atualize para HTTPS se a página atual for segura para evitar erros de conteúdo misto.
+              if (window.location.protocol === 'https:' && urlToVerify.startsWith('http://')) {
+                urlToVerify = urlToVerify.replace('http://', 'https://');
+              }
+
+              const response = await fetch(`${urlToVerify}?email=${encodeURIComponent(currentUser.email!)}`);
               if (response.ok) { // Status 200-299
                 setUser(currentUser);
                 setVerificationStatus('verified');
