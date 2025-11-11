@@ -234,18 +234,18 @@ export const AppProvider: React.FC<AppProviderProps> = ({
 
         // Global settings
         if(settingsToSave) {
-            setConfigLocal(DATA_SOURCES_KEY, dataSources);
-            setConfigLocal(WHITE_LABEL_KEY, whiteLabelSettings);
-            setConfigLocal(APP_SETTINGS_KEY, { autoSave: autoSaveEnabled });
+            setConfigLocal(DATA_SOURCES_KEY, dataSources, apiConfig);
+            setConfigLocal(WHITE_LABEL_KEY, whiteLabelSettings, apiConfig);
+            setConfigLocal(APP_SETTINGS_KEY, { autoSave: autoSaveEnabled }, apiConfig);
         }
 
         // Granular dashboard settings
         dashboardsToSave.forEach(d => {
             const cards = dashboardCards.filter(c => c.dashboardId === d.id);
             const vars = variables.filter(v => v.dashboardId === d.id);
-            setConfigLocal(`${DASHBOARD_CONFIG_PREFIX}${d.id}`, d);
-            setConfigLocal(`${DASHBOARD_CARDS_PREFIX}${d.id}`, cards);
-            setConfigLocal(`${DASHBOARD_VARIABLES_PREFIX}${d.id}`, vars);
+            setConfigLocal(`${DASHBOARD_CONFIG_PREFIX}${d.id}`, d, apiConfig);
+            setConfigLocal(`${DASHBOARD_CARDS_PREFIX}${d.id}`, cards, apiConfig);
+            setConfigLocal(`${DASHBOARD_VARIABLES_PREFIX}${d.id}`, vars, apiConfig);
         });
         
         // Handle local deletions
@@ -262,7 +262,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
         console.error("Failed to save changes to local storage:", error);
         throw error;
     }
-  }, [dataSources, dashboards, dashboardCards, variables, whiteLabelSettings, autoSaveEnabled, settingsSaveStatus, deletedDashboardIds]);
+  }, [dataSources, dashboards, dashboardCards, variables, whiteLabelSettings, autoSaveEnabled, settingsSaveStatus, deletedDashboardIds, apiConfig]);
 
   // Auto-save effect
   useEffect(() => {

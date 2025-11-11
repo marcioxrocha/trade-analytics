@@ -154,6 +154,12 @@ const EnvironmentVariablesView: React.FC<EnvironmentVariablesViewProps> = ({ dep
                 value: maskIfSet(apiConfig.API_SECRET),
                 example: <HeaderExample name="api_secret" />,
             },
+             {
+                name: `${prefix}${instancePrefix}LOCAL_DATA_SECRET`,
+                descriptionKey: 'envVars.localDataSecretDesc',
+                value: maskIfSet(apiConfig.LOCAL_DATA_SECRET),
+                example: <span className="text-xs text-gray-400 italic">{t('envVars.localDataSecretExample')}</span>,
+            },
         ];
 
         if (department) {
@@ -175,6 +181,7 @@ const EnvironmentVariablesView: React.FC<EnvironmentVariablesViewProps> = ({ dep
         return variables;
 
     }, [apiConfig, instanceKey, department, owner, t]);
+    
 
     return (
         <div>

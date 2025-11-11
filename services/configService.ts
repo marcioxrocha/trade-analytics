@@ -2,7 +2,8 @@
 // to store configurations as key-value pairs, where the key is a combination
 // of the tenant ID and the configuration key (e.g., 'tenant123:dataSources').
 
-import { ApiConfig } from '../types';
+import { ApiConfig, DataSource } from '../types';
+import { DATA_SOURCES_KEY } from '../constants';
 
 interface RequestContext {
     department?: string;
@@ -10,6 +11,36 @@ interface RequestContext {
 }
 
 const LOCAL_STORAGE_PREFIX = 'analytics_builder_';
+const ENCRYPT_PREFIX = 'enc::';
+
+
+// --- Encryption / Decryption Helpers (XOR Cipher) ---
+const xorStrings = (a: string, b: string): string => {
+  let result = '';
+  for (let i = 0; i < a.length; i++) {
+    result += String.fromCharCode(a.charCodeAt(i) ^ b.charCodeAt(i % b.length));
+  }
+  return result;
+};
+
+const encrypt = (text: string, key: string): string => {
+  if (!key) return text;
+  const xorred = xorStrings(text, key);
+  return ENCRYPT_PREFIX + btoa(xorred);
+};
+
+const decrypt = (encryptedText: string, key: string): string => {
+  if (!key || !encryptedText.startsWith(ENCRYPT_PREFIX)) return encryptedText;
+  try {
+    const base64Part = encryptedText.substring(ENCRYPT_PREFIX.length);
+    const decoded = atob(base64Part);
+    return xorStrings(decoded, key);
+  } catch (e) {
+    console.error("Failed to decrypt data, returning raw value.", e);
+    return encryptedText;
+  }
+};
+
 
 // --- LocalStorage Helper Functions (for fallback/demo purposes) ---
 
@@ -58,8 +89,31 @@ const createSupabaseClient = async (apiConfig: ApiConfig) => {
  * @param key The key of the configuration to save.
  * @param value The value to save.
  */
-export const setConfigLocal = <T>(key: string, value: T): void => {
-    setLocalItem(key, value);
+export const setConfigLocal = <T>(key: string, value: T, apiConfig: ApiConfig): void => {
+    if (key === DATA_SOURCES_KEY) {
+        const sources = value as unknown as DataSource[];
+        const secret = apiConfig.LOCAL_DATA_SECRET;
+
+        const sanitizedSources = sources.map(source => {
+            if (source.type === 'Supabase') {
+                // Encrypt Supabase connection string if a secret is provided
+                if (secret) {
+                    return { ...source, connectionString: encrypt(source.connectionString, secret) };
+                }
+                // If no secret, strip the connection string for safety
+                return { ...source, connectionString: '' };
+            }
+            if (source.type === 'LocalStorage (Demo)') {
+                // Keep the demo connection string as it is not sensitive
+                return source;
+            }
+            // Strip connection string for all other sensitive database types
+            return { ...source, connectionString: '' };
+        });
+        setLocalItem(key, sanitizedSources);
+    } else {
+        setLocalItem(key, value);
+    }
 }
 
 /**
@@ -149,7 +203,19 @@ export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: 
     }
     
     // 3. Fallback to localStorage.
-    return getLocalItem<T>(key);
+    const localData = getLocalItem<T>(key);
+    if (key === DATA_SOURCES_KEY && localData) {
+        const sources = localData as unknown as DataSource[];
+        const secret = apiConfig.LOCAL_DATA_SECRET;
+        const processedSources = sources.map(source => {
+            if (source.type === 'Supabase' && secret && source.connectionString) {
+                return { ...source, connectionString: decrypt(source.connectionString, secret) };
+            }
+            return source;
+        });
+        return processedSources as T;
+    }
+    return localData;
 };
 
 /**
@@ -214,7 +280,7 @@ export const getConfigsByPrefix = async <T>(prefix: string, apiConfig: ApiConfig
  */
 export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, context?: RequestContext): Promise<'remote' | 'local'> => {
     const updateLocalStorage = () => {
-        setLocalItem(key, value);
+        setConfigLocal(key, value, apiConfig);
     };
 
     // 1. Try Supabase first

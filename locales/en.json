@@ -1,4 +1,3 @@
-
 {
   "sidebar": {
     "title": "Analytics Builder",
@@ -302,6 +301,8 @@
     "supabaseUrlDesc": "The URL for your Supabase project, used for storing configurations if the custom CONFIG_API_URL is not set.",
     "supabaseKeyDesc": "The 'anon' public key for your Supabase project, used for storing configurations.",
     "supabaseSchemaTitle": "Supabase Configuration Schema",
-    "supabaseSchemaDesc": "If using Supabase for configuration storage, create the following table in your public schema. Be sure to configure Row Level Security (RLS) policies to match your application's security requirements."
+    "supabaseSchemaDesc": "If using Supabase for configuration storage, create the following table in your public schema. Be sure to configure Row Level Security (RLS) policies to match your application's security requirements.",
+    "localDataSecretDesc": "A secret key used to encrypt sensitive data (like Supabase connection strings) before storing it in the browser's local storage. This adds a layer of security for locally cached configurations.",
+    "localDataSecretExample": "Used for local data encryption."
   }
 }

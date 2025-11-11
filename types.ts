@@ -13,6 +13,7 @@ export interface ApiConfig {
   FIREBASE_PROJECT_ID: string;
   FIREBASE_RECAPTCHA_SITE_KEY: string;
   AUTH_VERIFY_EMAIL_URL: string;
+  LOCAL_DATA_SECRET: string;
 }
 
 export interface RequestContext {

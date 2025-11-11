@@ -35,5 +35,6 @@ export const getApiConfig = (instanceKey?: string): ApiConfig => {
     FIREBASE_PROJECT_ID: getEnvVar(`FIREBASE_PROJECT_ID`, instanceKey),
     FIREBASE_RECAPTCHA_SITE_KEY: getEnvVar(`FIREBASE_RECAPTCHA_SITE_KEY`, instanceKey),
     AUTH_VERIFY_EMAIL_URL: getEnvVar(`AUTH_VERIFY_EMAIL_URL`, instanceKey),
+    LOCAL_DATA_SECRET: getEnvVar('LOCAL_DATA_SECRET', instanceKey),
   };
 };
