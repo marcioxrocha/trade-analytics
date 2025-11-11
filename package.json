@@ -14,7 +14,7 @@
   "dependencies": {
     "@google/genai": "^1.27.0",
     "@supabase/supabase-js": "^2.80.0",
-    "cpx2": "^8.0.0",
+    "copyfiles": "^2.4.1",
     "dotenv": "^17.2.3",
     "firebase": "^12.5.0",
     "html2canvas": "^1.4.1",
