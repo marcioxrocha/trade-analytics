@@ -42,9 +42,9 @@ const AuthenticatedApp: React.FC<AuthenticatedAppProps> = ({ user }) => {
             instanceKey="main" 
             department="Sales" 
             owner="j.doe" 
-            allowDashboardManagement={false}
-            allowDataSourceManagement={false}
-            showInfoScreen={false}
+            allowDashboardManagement={true}
+            allowDataSourceManagement={true}
+            showInfoScreen={true}
             />
         </main>
       </div>
