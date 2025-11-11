@@ -73,6 +73,7 @@ const EnvironmentVariablesView: React.FC<EnvironmentVariablesViewProps> = ({ dep
     const envVars: EnvVar[] = useMemo(() => {
         const prefix = 'ANALYTICS_BUILDER_';
         const instancePrefix = instanceKey ? `${instanceKey.toUpperCase()}_` : '';
+        const maskIfSet = (value: string): string => value ? '********' : '';
         
         const variables: EnvVar[] = [
             {
@@ -132,7 +133,7 @@ const EnvironmentVariablesView: React.FC<EnvironmentVariablesViewProps> = ({ dep
             {
                 name: `${prefix}${instancePrefix}CONFIG_SUPABASE_KEY`,
                 descriptionKey: 'envVars.supabaseKeyDesc',
-                value: apiConfig.CONFIG_SUPABASE_KEY,
+                value: maskIfSet(apiConfig.CONFIG_SUPABASE_KEY),
                 example: <span className="text-xs text-gray-400 italic">e.g., eyJhbGciOi...</span>,
             },
             {
@@ -144,13 +145,13 @@ const EnvironmentVariablesView: React.FC<EnvironmentVariablesViewProps> = ({ dep
             {
                 name: `${prefix}${instancePrefix}API_KEY`,
                 descriptionKey: 'envVars.apiKeyDesc',
-                value: apiConfig.API_KEY,
+                value: maskIfSet(apiConfig.API_KEY),
                 example: <HeaderExample name="api_key" />,
             },
             {
                 name: `${prefix}${instancePrefix}API_SECRET`,
                 descriptionKey: 'envVars.apiSecretDesc',
-                value: apiConfig.API_SECRET,
+                value: maskIfSet(apiConfig.API_SECRET),
                 example: <HeaderExample name="api_secret" />,
             },
         ];
