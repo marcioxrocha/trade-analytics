@@ -1,9 +1,10 @@
 
+
 import React, { useMemo, useState } from 'react';
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts';
-import { ChartCardData, ChartType, DashboardFormattingSettings } from '../types';
+import { ChartCardData, ChartType, DashboardFormattingSettings, AggregationType } from '../types';
 import { DEFAULT_BRAND_COLOR, CHART_COLORS_PALETTE } from '../constants';
 import Icon from './Icon';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -318,6 +319,56 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
         case ChartType.TABLE:
             if (!card.data || card.data.length === 0) return <div className="text-center p-4">No data to display.</div>;
             const headers = Object.keys(card.data[0]);
+
+            let totalRow: Record<string, number> | null = null;
+            let averageRow: Record<string, number> | null = null;
+            
+            if (card.tableConfig?.showSummaryRow && card.tableConfig.summaryColumns && card.data && card.data.length > 0) {
+                const summaryConfig = card.tableConfig.summaryColumns;
+                // FIX: The type of summaryConfig values is AggregationType ('total' | 'average'), which can never be 'none'.
+                // The filter is redundant and causes a type error. The logic for setting this config already filters out 'none' values.
+                const columnsWithSummary = Object.keys(summaryConfig);
+
+                if (columnsWithSummary.length > 0) {
+                    const totals: Record<string, number> = {};
+                    const counts: Record<string, number> = {};
+
+                    card.data.forEach(row => {
+                        for (const col of columnsWithSummary) {
+                            if (Object.prototype.hasOwnProperty.call(row, col) && row[col] != null) {
+                                const value = parseFloat(row[col]);
+                                if (!isNaN(value)) {
+                                    totals[col] = (totals[col] || 0) + value;
+                                    counts[col] = (counts[col] || 0) + 1;
+                                }
+                            }
+                        }
+                    });
+
+                    const hasTotal = Object.values(summaryConfig).includes('total');
+                    const hasAverage = Object.values(summaryConfig).includes('average');
+
+                    if (hasTotal) {
+                        totalRow = {};
+                        for (const col of headers) {
+                            if (summaryConfig[col] === 'total' && totals[col] !== undefined) {
+                                totalRow[col] = totals[col];
+                            }
+                        }
+                    }
+
+                    if (hasAverage) {
+                        averageRow = {};
+                        for (const col of headers) {
+                            if (summaryConfig[col] === 'average' && totals[col] !== undefined) {
+                                averageRow[col] = counts[col] > 0 ? totals[col] / counts[col] : 0;
+                            }
+                        }
+                    }
+                }
+            }
+
+
             return (
                 <div className="overflow-x-auto h-full">
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
@@ -353,6 +404,60 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
                                 </tr>
                             ))}
                         </tbody>
+                        {(totalRow || averageRow) && (
+                           <tfoot className="bg-gray-100 dark:bg-gray-700 font-bold text-gray-900 dark:text-gray-100">
+                                {averageRow && (
+                                     <tr className="border-t-2 border-gray-300 dark:border-gray-600">
+                                        {headers.map((header, index) => {
+                                            const summaryValue = averageRow![header];
+                                            let content: React.ReactNode = '';
+                                            let cellColorClass = '';
+                                            if (index === 0) {
+                                                content = t('queryEditor.summaryRow.average');
+                                            } else if (summaryValue !== undefined) {
+                                                const columnType = card.columnTypes?.[header];
+                                                content = formatValue(summaryValue, columnType, formattingSettings);
+
+                                                const isNumericColumn = ['integer', 'decimal', 'currency'].includes(columnType || '');
+                                                if (isNumericColumn) {
+                                                    if (summaryValue > 0) {
+                                                        cellColorClass = 'text-green-600 dark:text-green-500';
+                                                    } else if (summaryValue < 0) {
+                                                        cellColorClass = 'text-red-600 dark:text-red-500';
+                                                    }
+                                                }
+                                            }
+                                            return <td key={`summary-avg-${header}`} className={`px-4 py-3 ${cellColorClass}`}>{content}</td>;
+                                        })}
+                                    </tr>
+                                )}
+                                {totalRow && (
+                                    <tr className={averageRow ? "border-t border-gray-200 dark:border-gray-600" : "border-t-2 border-gray-300 dark:border-gray-600"}>
+                                        {headers.map((header, index) => {
+                                            const summaryValue = totalRow![header];
+                                            let content: React.ReactNode = '';
+                                            let cellColorClass = '';
+                                            if (index === 0) {
+                                                content = t('queryEditor.summaryRow.total');
+                                            } else if (summaryValue !== undefined) {
+                                                const columnType = card.columnTypes?.[header];
+                                                content = formatValue(summaryValue, columnType, formattingSettings);
+                                                
+                                                const isNumericColumn = ['integer', 'decimal', 'currency'].includes(columnType || '');
+                                                if (isNumericColumn) {
+                                                    if (summaryValue > 0) {
+                                                        cellColorClass = 'text-green-600 dark:text-green-500';
+                                                    } else if (summaryValue < 0) {
+                                                        cellColorClass = 'text-red-600 dark:text-red-500';
+                                                    }
+                                                }
+                                            }
+                                            return <td key={`summary-total-${header}`} className={`px-4 py-3 ${cellColorClass}`}>{content}</td>;
+                                        })}
+                                    </tr>
+                                )}
+                           </tfoot>
+                        )}
                     </table>
                 </div>
             );
@@ -361,7 +466,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
         default:
             return <div>{t('chartCard.unsupported')}</div>;
         }
-    }, [card.data, card.type, card.categoryKey, card.dataKey, card.dataKeys, card.kpiConfig, card.columnTypes, t, formattingSettings, brandColor, card.id, highlightedDataKeys]);
+    }, [card.data, card.type, card.categoryKey, card.dataKey, card.dataKeys, card.kpiConfig, card.columnTypes, t, formattingSettings, brandColor, card.id, highlightedDataKeys, card.tableConfig]);
   
   const cardTitle = t(card.title) || card.title; // Handle both translation keys and plain strings
 

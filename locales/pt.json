@@ -185,6 +185,15 @@
       "mongo": "MongoDB",
       "redis": "Redis",
       "supabase": "Supabase"
+    },
+    "summaryRow": {
+      "title": "Linha de Sumário",
+      "enable": "Habilitar Linha de Sumário",
+      "column": "Coluna",
+      "aggregation": "Agregação",
+      "none": "Nenhum",
+      "total": "Total",
+      "average": "Média"
     }
   },
   "settings": {

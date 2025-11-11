@@ -76,6 +76,14 @@ export enum ChartType {
 export type QueryLanguage = 'sql' | 'mongo' | 'redis' | 'supabase';
 export type ColumnDataType = 'text' | 'integer' | 'decimal' | 'currency' | 'date' | 'datetime' | 'boolean';
 
+export type AggregationType = 'total' | 'average';
+
+export interface TableConfig {
+  showSummaryRow?: boolean;
+  summaryColumns?: Record<string, AggregationType>;
+}
+
+
 export interface ChartCardData {
   id: string;
   dashboardId: string; // Link to the parent dashboard
@@ -88,6 +96,7 @@ export interface ChartCardData {
   dataSourceId: string;
   data?: Record<string, any>[]; // Data is now optional, loaded at runtime
   columnTypes?: Record<string, ColumnDataType>; // Type definition for each column
+  tableConfig?: TableConfig; // Configuration specific to table charts
   dataKey: string; // Used for single-series charts
   dataKeys?: string[]; // Used for multi-series charts
   categoryKey: string;
