@@ -46,6 +46,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
 
   const parentDashboard = useMemo(() => dashboards.find(d => d.id === cardConfig.dashboardId), [dashboards, cardConfig.dashboardId]);
   const formattingSettings = useMemo(() => parentDashboard?.formattingSettings || DEFAULT_FORMATTING_SETTINGS, [parentDashboard]);
+  const scriptLibrary = useMemo(() => parentDashboard?.scriptLibrary || '', [parentDashboard]);
 
   const cardVariables = useMemo(() => {
     if (!cardConfig.dashboardId) return [];
@@ -60,16 +61,16 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
     return [...fixedVars, ...userVars];
   }, [variables, cardConfig.dashboardId, department, owner]);
   
-  const resolvedCardVariables = useMemo(() => resolveAllVariables(cardVariables), [cardVariables]);
+  const resolvedCardVariables = useMemo(() => resolveAllVariables(cardVariables, scriptLibrary), [cardVariables, scriptLibrary]);
 
   const finalTitle = useMemo(() => {
-    return substituteVariablesInQuery(cardConfig.title, cardVariables);
-  }, [cardConfig.title, cardVariables]);
+    return substituteVariablesInQuery(cardConfig.title, cardVariables, scriptLibrary);
+  }, [cardConfig.title, cardVariables, scriptLibrary]);
 
   const finalDescription = useMemo(() => {
     if (!cardConfig.description) return undefined;
-    return substituteVariablesInQuery(cardConfig.description, cardVariables);
-  }, [cardConfig.description, cardVariables]);
+    return substituteVariablesInQuery(cardConfig.description, cardVariables, scriptLibrary);
+  }, [cardConfig.description, cardVariables, scriptLibrary]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -86,7 +87,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
 
       try {
         const driver = getDriver(dataSource);
-        const finalQuery = substituteVariablesInQuery(cardConfig.query, cardVariables);
+        const finalQuery = substituteVariablesInQuery(cardConfig.query, cardVariables, scriptLibrary);
 
         const result: QueryResult = await driver.executeQuery({
           dataSource,
@@ -104,7 +105,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
         let finalData = transformedData;
         if (cardConfig.postProcessingScript) {
             try {
-                const { processedData } = executePostProcessingScript(transformedData, cardConfig.postProcessingScript, resolvedCardVariables);
+                const { processedData } = executePostProcessingScript(transformedData, cardConfig.postProcessingScript, resolvedCardVariables, scriptLibrary);
                 finalData = processedData;
             } catch (e) {
                 const scriptError = (e as any).error || e;
@@ -139,7 +140,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
     
     fetchData();
 
-  }, [cardConfig, dataSources, t, cardVariables, isAppLoading, formattingVersion, apiConfig, department, owner, resolvedCardVariables]);
+  }, [cardConfig, dataSources, t, cardVariables, isAppLoading, formattingVersion, apiConfig, department, owner, resolvedCardVariables, scriptLibrary]);
   
   const handleExport = async () => {
     showModal({

@@ -7,13 +7,15 @@ import { QueryResult } from '../types';
  * @param data The initial array of data objects from the query result.
  * @param script The JavaScript code to execute.
  * @param context A key-value object of variables to be made available to the script.
+ * @param libraryScript An optional string of JS functions to prepend to the user script.
  * @returns An object containing the transformed array of data objects and any console logs.
  * @throws An object containing the error and any logs captured before the error if the script fails.
  */
 export function executePostProcessingScript(
     data: Record<string, any>[],
     script: string,
-    context: Record<string, any> = {}
+    context: Record<string, any> = {},
+    libraryScript: string = ''
 ): { processedData: Record<string, any>[], logs: string[] } {
     if (!script.trim()) {
         return { processedData: data, logs: [] };
@@ -23,7 +25,7 @@ export function executePostProcessingScript(
     const customConsole = {
         log: (...args: any[]) => {
             // Log to the real console for developers debugging the component
-            console.log('>> [Post-processing LOG]:', ...args);
+            console.log('Post-processing script log:', ...args);
             // Store a string representation for the user UI
             const message = args.map(arg => {
                 if (typeof arg === 'object' && arg !== null) {
@@ -42,10 +44,16 @@ export function executePostProcessingScript(
     const executionContext = { ...context, console: customConsole };
     const contextKeys = Object.keys(executionContext);
     const contextValues = Object.values(executionContext);
+    
+    const fullScript = `
+        ${libraryScript}
+        
+        ${script}
+    `;
 
     try {
         // Create a sandboxed function. It has access to `data` and all keys from the context.
-        const transformFunction = new Function('data', ...contextKeys, script);
+        const transformFunction = new Function('data', ...contextKeys, fullScript);
         
         const result = transformFunction(data, ...contextValues);
 

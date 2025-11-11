@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { ChartCardData, QueryResult, ColumnDataType, Variable, ChartType } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAppContext } from '../contexts/AppContext';
@@ -18,14 +18,14 @@ import VariablesSidebar from './VariablesSidebar';
 import AiQueryGeneratorModal from './AiQueryGeneratorModal';
 import { getLanguageForDataSource, getDefaultQuery } from '../utils/queryUtils';
 
-interface QueryEditorViewProps {
+interface SqlEditorViewProps {
     editingCardId: string | null;
     onFinishEditing: () => void;
     department?: string;
     owner?: string;
 }
 
-const QueryEditorView: React.FC<QueryEditorViewProps> = ({ editingCardId, onFinishEditing, department, owner }) => {
+const SqlEditorView: React.FC<SqlEditorViewProps> = ({ editingCardId, onFinishEditing, department, owner }) => {
     const { t } = useLanguage();
     const { 
       dataSources, 
@@ -60,8 +60,12 @@ const QueryEditorView: React.FC<QueryEditorViewProps> = ({ editingCardId, onFini
 
     // AI Generation State
     const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+    
+    // Ref to track the previous card ID to prevent re-initializing the form on unrelated re-renders.
+    const prevCardIdRef = useRef<string | null>(null);
 
     const activeDashboard = useMemo(() => dashboards.find(d => d.id === activeDashboardId), [dashboards, activeDashboardId]);
+    const activeDashboardScriptLibrary = useMemo(() => activeDashboard?.scriptLibrary || '', [activeDashboard]);
 
     const activeDashboardVariables = useMemo(() => {
         const userVars = variables.filter(v => v.dashboardId === activeDashboardId);
@@ -75,7 +79,7 @@ const QueryEditorView: React.FC<QueryEditorViewProps> = ({ editingCardId, onFini
         return [...userVars, ...fixedVars];
     }, [variables, activeDashboardId, department, owner]);
     
-    const resolvedVariables = useMemo(() => resolveAllVariables(activeDashboardVariables), [activeDashboardVariables]);
+    const resolvedVariables = useMemo(() => resolveAllVariables(activeDashboardVariables, activeDashboardScriptLibrary), [activeDashboardVariables, activeDashboardScriptLibrary]);
     const variableContext = useMemo(() => buildVariableContext(activeDashboardVariables), [activeDashboardVariables]);
 
     const cardToEdit = useMemo(() => editingCardId ? dashboardCards.find(c => c.id === editingCardId) : null, [editingCardId, dashboardCards]);
@@ -117,7 +121,7 @@ const QueryEditorView: React.FC<QueryEditorViewProps> = ({ editingCardId, onFini
                 return obj;
             });
 
-            const { processedData, logs } = executePostProcessingScript(transformedData, script, resolvedVariables);
+            const { processedData, logs } = executePostProcessingScript(transformedData, script, resolvedVariables, activeDashboardScriptLibrary);
             const newQueryResult = convertObjectArrayToQueryResult(processedData);
             
             const savedColumnTypes = cardToEdit?.columnTypes || {};
@@ -143,7 +147,7 @@ const QueryEditorView: React.FC<QueryEditorViewProps> = ({ editingCardId, onFini
             setProcessedResult(null);
             setProcessingLogs(logs);
         }
-    }, [resolvedVariables, cardToEdit]);
+    }, [resolvedVariables, cardToEdit, activeDashboardScriptLibrary]);
 
     const executeQuery = useCallback(async (currentQuery: string, dataSourceId: string) => {
         const dataSource = dataSources.find(ds => ds.id === dataSourceId);
@@ -153,14 +157,11 @@ const QueryEditorView: React.FC<QueryEditorViewProps> = ({ editingCardId, onFini
         }
 
         setIsLoading(true);
-        setResult(null);
         setQueryError(null);
-        setProcessedResult(null);
         setProcessingError(null);
         setProcessingLogs([]);
-        setColumnTypes({});
         try {
-            const finalQuery = substituteVariablesInQuery(currentQuery, activeDashboardVariables);
+            const finalQuery = substituteVariablesInQuery(currentQuery, activeDashboardVariables, activeDashboardScriptLibrary);
             const driver = getDriver(dataSource);
             const queryResult = await driver.executeQuery({ dataSource, query: finalQuery }, apiConfig, { department, owner });
             setResult(queryResult);
@@ -175,34 +176,53 @@ const QueryEditorView: React.FC<QueryEditorViewProps> = ({ editingCardId, onFini
             }
         } catch (error) {
             setQueryError((error as Error).message);
+            setResult(null);
+            setProcessedResult(null);
         } finally {
             setIsLoading(false);
             if (cardToEdit) {
                 setIsInitialLoadDone(true);
             }
         }
-    }, [dataSources, t, activeDashboardVariables, showModal, apiConfig, department, owner, postProcessingScript, showPostProcessing, handleApplyPostProcessing, cardToEdit]);
+    }, [dataSources, t, activeDashboardVariables, showModal, apiConfig, department, owner, postProcessingScript, showPostProcessing, handleApplyPostProcessing, cardToEdit, activeDashboardScriptLibrary]);
 
     useEffect(() => {
         if (cardToEdit && dataSources.length > 0) {
-            setQuery(cardToEdit.query);
-            setSelectedDataSourceId(cardToEdit.dataSourceId);
-            setColumnTypes(cardToEdit.columnTypes || {});
-            setPostProcessingScript(cardToEdit.postProcessingScript || '');
-            setShowPostProcessing(!!cardToEdit.postProcessingScript);
-            setPreviewCard(null);
+            const hasCardChanged = prevCardIdRef.current !== cardToEdit.id;
+
+            // Only reset the form fields if the card has actually changed.
+            // This prevents overwriting user input in the post-processing editor
+            // when an unrelated dependency (like the script library) changes.
+            if (hasCardChanged) {
+                setQuery(cardToEdit.query);
+                setSelectedDataSourceId(cardToEdit.dataSourceId);
+                setColumnTypes(cardToEdit.columnTypes || {});
+                setPostProcessingScript(cardToEdit.postProcessingScript || '');
+                setShowPostProcessing(!!cardToEdit.postProcessingScript);
+                setPreviewCard(null);
+            }
+            
             if (cardToEdit.type !== ChartType.SPACER && (cardToEdit.query || cardToEdit.dataSourceId)) {
+                // Always execute the query, as variables or the script library might have changed,
+                // requiring a data refresh.
                 executeQuery(cardToEdit.query, cardToEdit.dataSourceId);
             } else {
                 setIsInitialLoadDone(true);
             }
+            
+            // Update the ref to the current card ID after processing.
+            prevCardIdRef.current = cardToEdit.id;
+
         } else {
+            // This block runs when the editor is closed or no card is selected.
+            // Reset state for a clean slate.
             setPostProcessingScript('');
             setShowPostProcessing(false);
             setProcessedResult(null);
             setProcessingError(null);
             setProcessingLogs([]);
             setIsInitialLoadDone(true);
+            prevCardIdRef.current = null; // Reset the ref.
         }
     }, [cardToEdit, dataSources, executeQuery]);
     
@@ -272,10 +292,10 @@ const QueryEditorView: React.FC<QueryEditorViewProps> = ({ editingCardId, onFini
         if (!previewCard) return null;
         return {
             ...previewCard,
-            title: substituteVariablesInQuery(previewCard.title, activeDashboardVariables),
-            description: previewCard.description ? substituteVariablesInQuery(previewCard.description, activeDashboardVariables) : undefined,
+            title: substituteVariablesInQuery(previewCard.title, activeDashboardVariables, activeDashboardScriptLibrary),
+            description: previewCard.description ? substituteVariablesInQuery(previewCard.description, activeDashboardVariables, activeDashboardScriptLibrary) : undefined,
         };
-    }, [previewCard, activeDashboardVariables]);
+    }, [previewCard, activeDashboardVariables, activeDashboardScriptLibrary]);
 
     const displayResult = processedResult || result;
     
@@ -395,4 +415,4 @@ const QueryEditorView: React.FC<QueryEditorViewProps> = ({ editingCardId, onFini
     );
 };
 
-export default QueryEditorView;
+export default SqlEditorView;

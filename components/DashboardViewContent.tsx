@@ -5,9 +5,10 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { View } from '../types';
 import Icon from './Icon';
 import DashboardGrid from './DashboardGrid';
-import QueryEditorView from './SqlEditorView';
+import SqlEditorView from './SqlEditorView';
 import SettingsView from './SettingsView';
 import EnvironmentVariablesView from './EnvironmentVariablesView';
+import ScriptLibraryView from './ScriptLibraryView';
 
 interface DashboardViewContentProps {
   instanceKey?: string;
@@ -99,7 +100,10 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
             { view: 'dashboard', labelKey: 'sidebar.dashboards' },
         ];
         if (allowDashboardManagement) {
-             items.push({ view: 'query-editor', labelKey: 'sidebar.queryEditor' });
+             items.push(
+                { view: 'query-editor', labelKey: 'sidebar.queryEditor' },
+                { view: 'script-library', labelKey: 'sidebar.scriptLibrary' }
+             );
         }
         if (allowDashboardManagement || allowDataSourceManagement) {
             items.push({ view: 'settings', labelKey: 'sidebar.settings' });
@@ -157,8 +161,9 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
             )}
             <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-auto">
                 {currentView === 'dashboard' && <DashboardGrid onEditCard={handleEditCard} onAddCard={handleAddCard} onAddNewDashboard={handleAddNewDashboard} department={department} owner={owner} />}
-                {currentView === 'query-editor' && <QueryEditorView editingCardId={editingCardId} onFinishEditing={handleFinishEditing} department={department} owner={owner} />}
+                {currentView === 'query-editor' && <SqlEditorView editingCardId={editingCardId} onFinishEditing={handleFinishEditing} department={department} owner={owner} />}
                 {currentView === 'settings' && <SettingsView />}
+                {currentView === 'script-library' && <ScriptLibraryView />}
                 {currentView === 'env-variables' && <EnvironmentVariablesView department={department} owner={owner} />}
             </div>
              {currentView === 'dashboard' && allowDashboardManagement && (

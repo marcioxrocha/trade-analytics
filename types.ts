@@ -21,7 +21,7 @@ export interface RequestContext {
     owner?: string;
 }
 
-export type View = 'dashboard' | 'query-editor' | 'settings' | 'env-variables';
+export type View = 'dashboard' | 'query-editor' | 'settings' | 'env-variables' | 'script-library';
 
 export type SaveStatus = 'idle' | 'unsaved' | 'saving-local' | 'saved-local' | 'syncing' | 'saved-remote';
 
@@ -45,6 +45,7 @@ export interface Dashboard {
   id: string;
   name: string;
   formattingSettings: DashboardFormattingSettings;
+  scriptLibrary?: string; // Reusable JavaScript functions for this dashboard
   saveStatus?: SaveStatus;
 }
 
@@ -139,6 +140,7 @@ export interface AppContextType {
   setActiveDashboardId: (id: string) => void;
   updateDashboardName: (id: string, newName: string) => void;
   updateActiveDashboardSettings: (settings: DashboardFormattingSettings) => void;
+  updateActiveDashboardScriptLibrary: (script: string) => void;
   updateWhiteLabelSettings: (settings: WhiteLabelSettings) => void;
   addCard: (newCard: Omit<ChartCardData, 'id'>) => void;
   cloneCard: (cardId: string) => void;

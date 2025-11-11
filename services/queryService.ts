@@ -4,14 +4,23 @@ import { Variable } from '../types';
  * Safely evaluates a JavaScript expression string within a given context.
  * @param expression The string containing the JavaScript expression to evaluate.
  * @param context A key-value object where keys are variable names available to the expression.
+ * @param libraryScript An optional string containing a library of JS functions to be made available.
  * @returns The result of the expression, or an error string if evaluation fails.
  */
-function evaluateExpression(expression: string, context: Record<string, any>): any {
+function evaluateExpression(expression: string, context: Record<string, any>, libraryScript: string = ''): any {
   try {
     const contextKeys = Object.keys(context);
     const contextValues = Object.values(context);
+    
+    // Combine the library and the user's expression into a single script body.
+    const scriptBody = `
+        ${libraryScript}
+        
+        return ${expression};
+    `;
+
     // Using the Function constructor is safer than eval() as it doesn't have access to the local scope.
-    const func = new Function(...contextKeys, `return ${expression}`);
+    const func = new Function(...contextKeys, scriptBody);
     return func(...contextValues);
   } catch (error) {
     console.error(`Error evaluating expression: "${expression}"`, error);
@@ -48,21 +57,23 @@ export const buildVariableContext = (variables: Variable[]): Record<string, any>
  * Resolves the value of a single variable, evaluating it as an expression if necessary.
  * @param variable The variable to resolve.
  * @param context The context of resolved plain variables.
+ * @param libraryScript An optional string containing a library of JS functions.
  * @returns The final value of the variable.
  */
-export const resolveVariableValue = (variable: Variable, context: Record<string, any>): any => {
+export const resolveVariableValue = (variable: Variable, context: Record<string, any>, libraryScript?: string): any => {
     if (!variable.isExpression || !variable.value) {
         return variable.value;
     }
-    return evaluateExpression(variable.value, context);
+    return evaluateExpression(variable.value, context, libraryScript);
 };
 
 /**
  * Resolves all variables for a dashboard into a simple key-value map.
  * @param variables The list of variables to resolve.
+ * @param libraryScript An optional string containing a library of JS functions.
  * @returns A key-value object of all resolved variables with their final, evaluated values.
  */
-export const resolveAllVariables = (variables: Variable[]): Record<string, any> => {
+export const resolveAllVariables = (variables: Variable[], libraryScript?: string): Record<string, any> => {
     const plainVariables = variables.filter(v => !v.isExpression);
     const expressionVariables = variables.filter(v => v.isExpression);
 
@@ -72,7 +83,7 @@ export const resolveAllVariables = (variables: Variable[]): Record<string, any> 
     // 2. Add evaluated expression variables to the context.
     const resolvedValues: Record<string, any> = { ...context };
     expressionVariables.forEach(v => {
-        resolvedValues[v.name] = evaluateExpression(v.value, context);
+        resolvedValues[v.name] = evaluateExpression(v.value, context, libraryScript);
     });
     
     return resolvedValues;
@@ -82,23 +93,33 @@ export const resolveAllVariables = (variables: Variable[]): Record<string, any> 
 /**
  * Replaces {{variable_name}} placeholders in a SQL query with their actual values.
  * It first resolves all plain text variables, then uses them as context to evaluate
- * any variables marked as JavaScript expressions.
+ * any variables marked as JavaScript expressions, making the script library available.
  * @param sql The SQL query string with placeholders.
  * @param variables An array of available variables for the dashboard.
+ * @param libraryScript An optional string containing a library of JS functions.
  * @returns The SQL query with variables substituted.
  */
-export const substituteVariablesInQuery = (sql: string, variables: Variable[]): string => {
+export const substituteVariablesInQuery = (sql: string, variables: Variable[], libraryScript?: string): string => {
     let finalSql = sql;
     
-    const resolvedValues = resolveAllVariables(variables);
+    const resolvedValues = resolveAllVariables(variables, libraryScript);
     
     // Substitute all resolved values (both plain and evaluated) into the query.
-    finalSql = finalSql.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (match, varName) => {
-        if (Object.prototype.hasOwnProperty.call(resolvedValues, varName)) {
-            // Ensure the substituted value is a string.
-            return String(resolvedValues[varName]);
+    finalSql = finalSql.replace(/\{\{([a-zA-Z0-9_().\s'"]+)\}\}/g, (match, expression) => {
+        // Now, we treat the content inside {{...}} as a potential expression itself,
+        // which could be a simple variable name or a function call from the library.
+        const evaluatedValue = evaluateExpression(expression, resolvedValues, libraryScript);
+        
+        if (typeof evaluatedValue !== 'string' || !evaluatedValue.startsWith('[EVAL_ERROR:')) {
+             return String(evaluatedValue);
         }
-        console.warn(`Variable {{${varName}}} not found for this dashboard.`);
+
+        // Fallback for simple variable names if expression fails (e.g. {{my_var}} but not {{my_func()}})
+        if (Object.prototype.hasOwnProperty.call(resolvedValues, expression.trim())) {
+            return String(resolvedValues[expression.trim()]);
+        }
+        
+        console.warn(`Variable or expression {{${expression}}} could not be resolved.`);
         return match; // Return the original placeholder if the variable is not found.
     });
 

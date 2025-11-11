@@ -15,6 +15,7 @@ import { DEFAULT_FORMATTING_SETTINGS } from '../services/formattingService';
 import SaveStatusIndicator from './SaveStatusIndicator';
 import { substituteVariablesInQuery } from '../services/queryService';
 import DashboardExportImportModal from './ExportImportModal';
+import ScriptLibraryEditor from './ScriptLibraryEditor';
 
 interface DashboardGridProps {
     onEditCard: (cardId: string) => void;
@@ -87,7 +88,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
 
     const finalDashboardName = useMemo(() => {
         if (!activeDashboard) return t('dashboard.noDashboardsTitle');
-        return substituteVariablesInQuery(activeDashboard.name, activeDashboardVariables);
+        return substituteVariablesInQuery(activeDashboard.name, activeDashboardVariables, activeDashboard.scriptLibrary);
     }, [activeDashboard, activeDashboardVariables, t]);
     
     useEffect(() => {
@@ -466,7 +467,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
                                         className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
                                     >
                                         {v.options.map(opt => (
-                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                            <option key={opt.value} value={opt.value}>{substituteVariablesInQuery(opt.label, activeDashboardVariables, activeDashboard?.scriptLibrary)}</option>
                                         ))}
                                     </select>
                                 ) : (

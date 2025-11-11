@@ -372,6 +372,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({
       setFormattingVersion(v => v + 1);
   }, [activeDashboardId]);
 
+  const updateActiveDashboardScriptLibrary = useCallback((script: string) => {
+    setDashboards(prev => prev.map(d => 
+        d.id === activeDashboardId ? { ...d, scriptLibrary: script, saveStatus: 'unsaved' } : d
+    ));
+  }, [activeDashboardId]);
+
 
   const updateWhiteLabelSettings = useCallback((settings: WhiteLabelSettings) => {
     setWhiteLabelSettings(settings);
@@ -644,6 +650,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     setActiveDashboardId: memoizedSetActiveDashboardId,
     updateDashboardName,
     updateActiveDashboardSettings,
+    updateActiveDashboardScriptLibrary,
     updateWhiteLabelSettings,
     addCard,
     cloneCard,
@@ -676,7 +683,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
   }), [
     dataSources, dashboards, variables, activeDashboardId, dashboardCards, whiteLabelSettings,
     addDataSource, updateDataSource, removeDataSource, addDashboard, duplicateDashboard, removeDashboard, 
-    memoizedSetActiveDashboardId, updateDashboardName, updateActiveDashboardSettings, updateWhiteLabelSettings, addCard, 
+    memoizedSetActiveDashboardId, updateDashboardName, updateActiveDashboardSettings, updateActiveDashboardScriptLibrary, updateWhiteLabelSettings, addCard, 
     cloneCard, updateCard, removeCard, reorderDashboardCards, addVariable, updateVariable, removeVariable,
     updateAllVariables, exportDashboards, importDashboards, exportDataSources, importDataSources, isLoading, settingsSaveStatus, syncDashboards, syncSettings, autoSaveEnabled, toggleAutoSave, formattingVersion,
     apiConfig, instanceKey, department, owner, hasUnsyncedChanges, allowDashboardManagement, allowDataSourceManagement, showInfoScreen

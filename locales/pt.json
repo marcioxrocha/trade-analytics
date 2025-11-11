@@ -4,7 +4,8 @@
     "dashboards": "Meus Painéis",
     "queryEditor": "Editor de Consulta",
     "settings": "Configurações",
-    "envVars": "Informações"
+    "envVars": "Informações",
+    "scriptLibrary": "Biblioteca de Scripts"
   },
   "header": {
     "newButton": "Novo"
@@ -104,6 +105,12 @@
     },
     "syncingDataTitle": "Sincronizando Painel",
     "syncingData": "Estamos buscando suas configurações e dados mais recentes. Isso pode levar um momento."
+  },
+  "scriptLibrary": {
+    "title": "Biblioteca de Scripts",
+    "titleFor": "Biblioteca de Scripts: {name}",
+    "description": "Defina funções JavaScript reutilizáveis aqui. Elas estarão disponíveis no pós-processamento, nas expressões de variáveis e nos títulos dos cartões.",
+    "noDashboardActive": "Por favor, selecione um painel ativo para gerenciar sua biblioteca de scripts."
   },
   "chartCard": {
     "noDataTitle": "Erro na Exportação",
