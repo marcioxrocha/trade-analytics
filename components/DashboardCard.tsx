@@ -193,7 +193,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
     isDropTarget && 'opacity-40 outline-dashed outline-2 outline-offset-2 outline-indigo-500 scale-105',
   ].filter(Boolean).join(' ');
 
-  const containerClasses = `${colSpanClass} ${rowSpanClass} ${interactionClasses} transition-all duration-200 ease-in-out cursor-move flex flex-col h-full ${minHeightClass}`;
+  const containerClasses = `${colSpanClass} ${rowSpanClass} ${interactionClasses} ${cardConfig.type === ChartType.SPACER ? "hidden lg:flex": "flex"} transition-all duration-200 ease-in-out cursor-move flex-col h-full ${minHeightClass}`;
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();

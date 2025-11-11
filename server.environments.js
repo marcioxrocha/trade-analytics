@@ -17,10 +17,8 @@ for (const prop in process.env) {
 }
 
 environments = `
-export class ApiConfig {
-    static environments = {
+export const environments: any = {
 ${environments}
-    };
 }
 `;
 

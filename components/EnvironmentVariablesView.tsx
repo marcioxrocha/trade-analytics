@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAppContext } from '../contexts/AppContext';
@@ -123,6 +124,18 @@ const EnvironmentVariablesView: React.FC<EnvironmentVariablesViewProps> = ({ dep
                 />,
             },
             {
+                name: `${prefix}ANALYTICS_BUILDER_CONFIG_SUPABASE_URL`,
+                descriptionKey: 'envVars.supabaseUrlDesc',
+                value: apiConfig.CONFIG_SUPABASE_URL,
+                example: <span className="text-xs text-gray-400 italic">e.g., https://xyz.supabase.co</span>,
+            },
+            {
+                name: `${prefix}ANALYTICS_BUILDER_CONFIG_SUPABASE_KEY`,
+                descriptionKey: 'envVars.supabaseKeyDesc',
+                value: apiConfig.CONFIG_SUPABASE_KEY,
+                example: <span className="text-xs text-gray-400 italic">e.g., eyJhbGciOi...</span>,
+            },
+            {
                 name: `${prefix}ANALYTICS_BUILDER_TENANT`,
                 descriptionKey: 'envVars.tenantIdDesc',
                 value: apiConfig.TENANT_ID,
@@ -173,6 +186,50 @@ const EnvironmentVariablesView: React.FC<EnvironmentVariablesViewProps> = ({ dep
         return variables;
 
     }, [apiConfig, instanceKey, t, department, owner]);
+    
+    const supabaseSchema = `
+-- Create the table to hold configurations
+CREATE TABLE public.analytics_builder_configs (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "key" text NOT NULL,
+  "value" jsonb NULL,
+  "tenant_id" text NULL,
+  "department" text NULL,
+  "owner" text NULL,
+  CONSTRAINT analytics_builder_configs_pkey PRIMARY KEY ("id"),
+  CONSTRAINT analytics_builder_configs_unique_key UNIQUE ("key", "tenant_id", "department", "owner")
+);
+
+-- Add comments to explain the table and columns
+COMMENT ON TABLE public.analytics_builder_configs IS 'Stores key-value configurations for the Analytics Builder component.';
+COMMENT ON COLUMN public.analytics_builder_configs."key" IS 'The unique key for the configuration (e.g., "dashboards", "dataSources").';
+COMMENT ON COLUMN public.analytics_builder_configs."value" IS 'The JSON object containing the configuration data.';
+COMMENT ON COLUMN public.analytics_builder_configs."tenant_id" IS 'For multi-tenant setups, isolating data by tenant.';
+COMMENT ON COLUMN public.analytics_builder_configs."department" IS 'Contextual filter for department-specific configurations.';
+COMMENT ON COLUMN public.analytics_builder_configs."owner" IS 'Contextual filter for owner-specific configurations.';
+
+-- Enable Row Level Security (RLS) on the table
+-- IMPORTANT: This is a critical security step in Supabase.
+ALTER TABLE public.analytics_builder_configs ENABLE ROW LEVEL SECURITY;
+
+-- Create policies to control access.
+-- These are EXAMPLES. You MUST customize them to match your application's
+-- authentication and authorization logic (e.g., using auth.uid(), custom claims).
+
+-- EXAMPLE 1: Allow users to manage configs where the 'owner' column matches their email.
+-- This assumes you are using Supabase Auth and the 'owner' column stores user emails.
+CREATE POLICY "Enable access based on owner email"
+ON public.analytics_builder_configs
+FOR ALL
+USING (auth.email() = "owner");
+
+-- EXAMPLE 2: A simpler policy for public read access if needed (e.g., for shared templates).
+CREATE POLICY "Allow public read access"
+ON public.analytics_builder_configs
+FOR SELECT
+USING (true);
+    `;
 
     return (
         <div>
@@ -217,6 +274,16 @@ const EnvironmentVariablesView: React.FC<EnvironmentVariablesViewProps> = ({ dep
                             ))}
                         </tbody>
                     </table>
+                </div>
+            </div>
+            
+            <div className="mt-8">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">{t('envVars.supabaseSchemaTitle')}</h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">{t('envVars.supabaseSchemaDesc')}</p>
+                <div className="bg-gray-900 text-white p-4 rounded-xl shadow-lg">
+                    <pre className="text-sm whitespace-pre-wrap">
+                        <code className="language-sql">{supabaseSchema.trim()}</code>
+                    </pre>
                 </div>
             </div>
         </div>

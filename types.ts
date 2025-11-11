@@ -3,6 +3,8 @@
 export interface ApiConfig {
   QUERY_PROXY_URL: string;
   CONFIG_API_URL: string;
+  CONFIG_SUPABASE_URL: string;
+  CONFIG_SUPABASE_KEY: string;
   TENANT_ID: string;
   API_KEY: string;
   API_SECRET: string;

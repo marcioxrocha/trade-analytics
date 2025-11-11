@@ -281,6 +281,10 @@
     "headerName": "Nome do Cabeçalho",
     "departmentDesc": "O departamento associado a esta instância do painel. Passado como uma propriedade do componente, disponível como uma variável `{{department}}` nas consultas, e enviado como um cabeçalho `X-Department` nas requisições da API de configuração.",
     "ownerDesc": "O proprietário associado a esta instância do painel. Passado como uma propriedade do componente, disponível como uma variável `{{owner}}` nas consultas, e enviado como um cabeçalho `X-Owner` nas requisições da API de configuração.",
-    "propUsage": "Pode ser usado como uma variável em consultas:"
+    "propUsage": "Pode ser usado como uma variável em consultas:",
+    "supabaseUrlDesc": "A URL do seu projeto Supabase, usada para armazenar configurações se a CONFIG_API_URL personalizada não estiver definida.",
+    "supabaseKeyDesc": "A chave pública 'anon' do seu projeto Supabase, usada para armazenar configurações.",
+    "supabaseSchemaTitle": "Schema de Configuração do Supabase",
+    "supabaseSchemaDesc": "Se estiver usando o Supabase para armazenamento de configurações, crie a tabela a seguir em seu schema público. Certifique-se de configurar as políticas de Segurança em Nível de Linha (RLS) para corresponder aos requisitos de segurança da sua aplicação."
   }
 }

@@ -281,6 +281,10 @@
     "headerName": "Header Name",
     "departmentDesc": "The department associated with this dashboard instance. Passed as a component property, available as a `{{department}}` variable in queries, and sent as an `X-Department` header in configuration API requests.",
     "ownerDesc": "The owner associated with this dashboard instance. Passed as a component property, available as a `{{owner}}` variable in queries, and sent as an `X-Owner` header in configuration API requests.",
-    "propUsage": "Can be used as a variable in queries:"
+    "propUsage": "Can be used as a variable in queries:",
+    "supabaseUrlDesc": "The URL for your Supabase project, used for storing configurations if the custom CONFIG_API_URL is not set.",
+    "supabaseKeyDesc": "The 'anon' public key for your Supabase project, used for storing configurations.",
+    "supabaseSchemaTitle": "Supabase Configuration Schema",
+    "supabaseSchemaDesc": "If using Supabase for configuration storage, create the following table in your public schema. Be sure to configure Row Level Security (RLS) policies to match your application's security requirements."
   }
 }
