@@ -1,11 +1,13 @@
 
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardView from './components/DashboardView';
 import { useLanguage } from './contexts/LanguageContext';
 import { ApiProvider, useApi } from './contexts/ApiContext';
 import type { User } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js';
 import Icon from './components/Icon';
+import ThemeSwitcher from './components/ThemeSwitcher';
 
 // Este componente irá conter o aplicativo principal após a autenticação
 interface AuthenticatedAppProps {
@@ -28,7 +30,8 @@ const AuthenticatedApp: React.FC<AuthenticatedAppProps> = ({ user }) => {
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-sans">
       <header className="flex-shrink-0 bg-white dark:bg-gray-800 shadow-md p-2 px-4 flex items-center justify-between z-20">
         <div />
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          <ThemeSwitcher />
           <span className="text-sm">{t('app.welcome')}, {user.displayName}</span>
           {user.photoURL && <img src={user.photoURL} alt="User" className="w-8 h-8 rounded-full" />}
           <button onClick={handleSignOut} className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
