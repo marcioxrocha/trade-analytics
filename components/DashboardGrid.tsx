@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import DashboardCard from './DashboardCard';
 import Icon from './Icon';
@@ -43,6 +44,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
       exportDashboards,
       importDashboards,
       hasUnsyncedChanges,
+      isLoading,
     } = useAppContext();
     const { showModal, hideModal } = useDashboardModal();
     
@@ -327,6 +329,16 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
             updateVariable({ ...variableToUpdate, value: newValue });
         }
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mb-4"></div>
+                <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300">{t('dashboard.syncingDataTitle')}</h2>
+                <p className="mt-2 text-gray-500 dark:text-gray-400">{t('dashboard.syncingData')}</p>
+            </div>
+        );
+    }
 
     return (
         <div>

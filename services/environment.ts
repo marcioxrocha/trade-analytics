@@ -1,6 +1,6 @@
 
 export const environments: any = {
-        ANALYTICS_BUILDER_MAIN_AUTH_VERIFY_EMAIL_URL: "http://localhost:3001/api/verify-email", 
+        ANALYTICS_BUILDER_MAIN_AUTH_VERIFY_EMAIL_URL: "https://trade-analytics-api.vercel.app/api/verify-email", 
         ANALYTICS_BUILDER_MAIN_CONFIG_SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3cWxlZWhka3Zud2R1eGVmcHdhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjUwOTQ0NCwiZXhwIjoyMDc4MDg1NDQ0fQ.2za4SPPljr53MLhm2D-hVgtETBHYqYr51VSBsEzV5BE", 
         ANALYTICS_BUILDER_MAIN_CONFIG_SUPABASE_URL: "https://zwqleehdkvnwduxefpwa.supabase.co", 
         ANALYTICS_BUILDER_MAIN_FIREBASE_API_KEY: "AIzaSyBMntvYIBCz1KcYwcqnxpkQ5MnOoyhlI8c", 

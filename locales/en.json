@@ -102,7 +102,9 @@
       "numberDecimalPlaces": "Decimal Places (Numbers)",
       "comma": "Comma (,)",
       "dot": "Dot (.)"
-    }
+    },
+    "syncingDataTitle": "Syncing Dashboard",
+    "syncingData": "We're fetching your latest settings and data. This may take a moment."
   },
   "chartCard": {
     "noDataTitle": "Export Error",

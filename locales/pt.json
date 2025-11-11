@@ -102,7 +102,9 @@
       "numberDecimalPlaces": "Casas Decimais (Números)",
       "comma": "Vírgula (,)",
       "dot": "Ponto (.)"
-    }
+    },
+    "syncingDataTitle": "Sincronizando Painel",
+    "syncingData": "Estamos buscando suas configurações e dados mais recentes. Isso pode levar um momento."
   },
   "chartCard": {
     "noDataTitle": "Erro na Exportação",
