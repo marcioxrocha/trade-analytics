@@ -104,7 +104,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
       
       // --- End of Backward Compatibility Logic ---
 
-      setDataSources((loadedSources || []).filter(safeFilter));
+      setDataSources((Array.isArray(loadedSources)?loadedSources:[loadedSources]).filter(x => x).filter(safeFilter));
       setWhiteLabelSettings(loadedWhiteLabel || { brandColor: DEFAULT_BRAND_COLOR });
       setAutoSaveEnabled(loadedAppSettings?.autoSave || false);
       
