@@ -129,6 +129,7 @@
   "queryEditor": {
     "title": "Editor de Consulta",
     "connectsTo": "Conectar a:",
+    "selectDataSourcePlaceholder": "Selecione...",
     "primaryDatabase": "Banco de Dados Primário",
     "runQuery": "Executar Consulta",
     "running": "Executando...",

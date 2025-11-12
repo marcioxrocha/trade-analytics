@@ -97,14 +97,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({
             console.log(`Found ${legacyDashboards.length} legacy dashboards. They will be migrated on the next sync.`);
             // Mark all legacy dashboards as unsaved to trigger migration on the next sync.
             loadedDashboards = legacyDashboards.map(d => ({ ...d, saveStatus: 'unsaved' }));
-            allCards = (Array.isArray(legacyCards)?legacyCards:[legacyCards]).filter(x => x).filter(safeFilter);
-            allVariables = (Array.isArray(legacyVariables)?legacyVariables:[legacyVariables]).filter(x => x).filter(safeFilter);
+            allCards = Array.isArray(legacyCards) ? legacyCards.filter(safeFilter) : [];
+            allVariables = Array.isArray(legacyVariables) ? legacyVariables.filter(safeFilter) : [];
         }
       }
       
       // --- End of Backward Compatibility Logic ---
 
-      setDataSources((Array.isArray(loadedSources)?loadedSources:[loadedSources]).filter(x => x).filter(safeFilter));
+      setDataSources(Array.isArray(loadedSources) ? loadedSources.filter(safeFilter) : []);
       setWhiteLabelSettings(loadedWhiteLabel || { brandColor: DEFAULT_BRAND_COLOR });
       setAutoSaveEnabled(loadedAppSettings?.autoSave || false);
       

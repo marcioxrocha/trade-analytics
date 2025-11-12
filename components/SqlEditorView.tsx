@@ -44,7 +44,7 @@ const SqlEditorView: React.FC<SqlEditorViewProps> = ({ editingCardId, onFinishEd
     const [result, setResult] = useState<QueryResult | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [queryError, setQueryError] = useState<string | null>(null);
-    const [selectedDataSourceId, setSelectedDataSourceId] = useState(dataSources[0]?.id || '');
+    const [selectedDataSourceId, setSelectedDataSourceId] = useState('');
     const [previewCard, setPreviewCard] = useState<ChartCardData | null>(null);
     const [columnTypes, setColumnTypes] = useState<Record<string, ColumnDataType>>({});
     const [isVariablesModalOpen, setIsVariablesModalOpen] = useState(false);
@@ -240,12 +240,6 @@ const SqlEditorView: React.FC<SqlEditorViewProps> = ({ editingCardId, onFinishEd
         }, 500);
         return () => clearTimeout(handler);
     }, [postProcessingScript, result, showPostProcessing, handleApplyPostProcessing]);
-
-    useEffect(() => {
-      if (!selectedDataSourceId && dataSources.length > 0) {
-        setSelectedDataSourceId(dataSources[0].id);
-      }
-    }, [dataSources, selectedDataSourceId]);
 
     const handleRunQuery = () => executeQuery(query, selectedDataSourceId);
 

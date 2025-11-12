@@ -2,7 +2,7 @@
 // to store configurations as key-value pairs, where the key is a combination
 // of the tenant ID and the configuration key (e.g., 'tenant123:dataSources').
 
-import { ApiConfig, DataSource } from '../types';
+import { ApiConfig, DataSource, DatabaseType } from '../types';
 import { DATA_SOURCES_KEY } from '../constants';
 
 interface RequestContext {
@@ -93,22 +93,27 @@ export const setConfigLocal = <T>(key: string, value: T, apiConfig: ApiConfig): 
     if (key === DATA_SOURCES_KEY) {
         const sources = value as unknown as DataSource[];
         const secret = apiConfig.LOCAL_DATA_SECRET;
+        // Types that should NOT be stored locally with connection strings. Supabase is excluded.
+        const LOCALLY_PROHIBITED_DB_TYPES: DatabaseType[] = ['PostgreSQL', 'MySQL', 'SQL Server', 'Redis', 'MongoDB', 'CosmosDB'];
 
         const sanitizedSources = sources.map(source => {
-            if (source.type === 'Supabase') {
-                // Encrypt Supabase connection string if a secret is provided
-                if (secret) {
-                    return { ...source, connectionString: encrypt(source.connectionString, secret) };
-                }
-                // If no secret, strip the connection string for safety
+            // For prohibited types, always strip the connection string for local storage.
+            if (LOCALLY_PROHIBITED_DB_TYPES.includes(source.type)) {
                 return { ...source, connectionString: '' };
             }
-            if (source.type === 'LocalStorage (Demo)') {
-                // Keep the demo connection string as it is not sensitive
-                return source;
+
+            // For Supabase, maintain the existing encryption logic.
+            if (source.type === 'Supabase') {
+                if (secret && source.connectionString && source.connectionString !== 'N/A') {
+                    // Encrypt if secret is available
+                    return { ...source, connectionString: encrypt(source.connectionString, secret) };
+                }
+                // Strip if no secret is available (security fallback)
+                return { ...source, connectionString: '' };
             }
-            // Strip connection string for all other sensitive database types
-            return { ...source, connectionString: '' };
+            
+            // For all other types (e.g., LocalStorage (Demo)), return as is.
+            return source;
         });
         setLocalItem(key, sanitizedSources);
     } else {
@@ -150,17 +155,12 @@ export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: 
             if (department) query = query.eq('department', department); else query = query.is('department', null);
             if (owner) query = query.eq('owner', owner); else query = query.is('owner', null);
             
-            // Use .maybeSingle() to prevent an error when 0 rows are returned.
-            // It will return { data: null, error: null } in that case.
             const { data, error } = await query.maybeSingle();
 
             if (error) {
-                // If there's any other error (RLS, connection, etc.), throw it to the catch block.
                 throw new Error(error.message);
             }
             
-            // If we reach here successfully, we should return the result from Supabase
-            // (either the data or null) and not fall back to other storage methods.
             return data ? (data.value as T) : null;
             
         } catch (error) {
@@ -174,29 +174,26 @@ export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: 
         try {
             const url = `${apiConfig.CONFIG_API_URL}?key=${encodeURIComponent(key)}`;
             const headers: HeadersInit = {};
-            if (apiConfig.TENANT_ID) {
-                headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
-            }
-            if (apiConfig.API_KEY) {
-                headers['api_key'] = apiConfig.API_KEY;
-            }
-            if (apiConfig.API_SECRET) {
-                headers['api_secret'] = apiConfig.API_SECRET;
-            }
-            if (context?.department) {
-                headers['X-Department'] = context.department;
-            }
-            if (context?.owner) {
-                headers['X-Owner'] = context.owner;
-            }
+            if (apiConfig.TENANT_ID) headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
+            if (apiConfig.API_KEY) headers['api_key'] = apiConfig.API_KEY;
+            if (apiConfig.API_SECRET) headers['api_secret'] = apiConfig.API_SECRET;
+            if (context?.department) headers['X-Department'] = context.department;
+            if (context?.owner) headers['X-Owner'] = context.owner;
             
             const response = await fetch(url, { headers });
 
             if (!response.ok) {
-                if(response.status === 404) return null; // 404 is a valid "not found" response.
+                if(response.status === 404) return null;
                 throw new Error(`API returned status ${response.status}`);
             }
-            return await response.json();
+            const responseData = await response.json();
+            
+            // FIX: Handle backend returning the full document vs. just the value.
+            if (responseData && typeof responseData === 'object' && 'value' in responseData) {
+                return responseData.value as T;
+            }
+            return responseData as T;
+
         } catch (error) {
             console.warn(`API call to getConfig failed, falling back to localStorage. Error:`, error);
         }
@@ -207,8 +204,10 @@ export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: 
     if (key === DATA_SOURCES_KEY && localData) {
         const sources = localData as unknown as DataSource[];
         const secret = apiConfig.LOCAL_DATA_SECRET;
+        const SENSITIVE_DB_TYPES: DatabaseType[] = ['PostgreSQL', 'MySQL', 'SQL Server', 'Redis', 'MongoDB', 'CosmosDB', 'Supabase'];
+
         const processedSources = sources.map(source => {
-            if (source.type === 'Supabase' && secret && source.connectionString) {
+            if (SENSITIVE_DB_TYPES.includes(source.type) && secret && source.connectionString) {
                 return { ...source, connectionString: decrypt(source.connectionString, secret) };
             }
             return source;
@@ -257,21 +256,11 @@ export const getConfigsByPrefix = async <T>(prefix: string, apiConfig: ApiConfig
         try {
             const url = `${apiConfig.CONFIG_API_URL}?prefix=${encodeURIComponent(prefix)}`;
             const headers: HeadersInit = {};
-            if (apiConfig.TENANT_ID) {
-                headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
-            }
-            if (apiConfig.API_KEY) {
-                headers['api_key'] = apiConfig.API_KEY;
-            }
-            if (apiConfig.API_SECRET) {
-                headers['api_secret'] = apiConfig.API_SECRET;
-            }
-            if (context?.department) {
-                headers['X-Department'] = context.department;
-            }
-            if (context?.owner) {
-                headers['X-Owner'] = context.owner;
-            }
+            if (apiConfig.TENANT_ID) headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
+            if (apiConfig.API_KEY) headers['api_key'] = apiConfig.API_KEY;
+            if (apiConfig.API_SECRET) headers['api_secret'] = apiConfig.API_SECRET;
+            if (context?.department) headers['X-Department'] = context.department;
+            if (context?.owner) headers['X-Owner'] = context.owner;
             
             const response = await fetch(url, { headers });
 
@@ -281,7 +270,7 @@ export const getConfigsByPrefix = async <T>(prefix: string, apiConfig: ApiConfig
             }
             const res = await response.json();
 
-            return res ? res.map(item => item.value as T) : [];
+            return res ? res.map((item: any) => item.value as T) : [];
         } catch (error) {
             console.warn(`API call to getConfig failed, falling back to localStorage. Error:`, error);
         }
@@ -362,21 +351,11 @@ export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, 
     if (apiConfig.CONFIG_API_URL) {
         try {
             const headers: HeadersInit = { 'Content-Type': 'application/json' };
-            if (apiConfig.TENANT_ID) {
-                headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
-            }
-            if (apiConfig.API_KEY) {
-                headers['api_key'] = apiConfig.API_KEY;
-            }
-            if (apiConfig.API_SECRET) {
-                headers['api_secret'] = apiConfig.API_SECRET;
-            }
-            if (context?.department) {
-                headers['X-Department'] = context.department;
-            }
-            if (context?.owner) {
-                headers['X-Owner'] = context.owner;
-            }
+            if (apiConfig.TENANT_ID) headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
+            if (apiConfig.API_KEY) headers['api_key'] = apiConfig.API_KEY;
+            if (apiConfig.API_SECRET) headers['api_secret'] = apiConfig.API_SECRET;
+            if (context?.department) headers['X-Department'] = context.department;
+            if (context?.owner) headers['X-Owner'] = context.owner;
 
             const response = await fetch(apiConfig.CONFIG_API_URL, {
                 method: 'POST',

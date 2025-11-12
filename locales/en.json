@@ -129,6 +129,7 @@
   "queryEditor": {
     "title": "Query Editor",
     "connectsTo": "Connects to:",
+    "selectDataSourcePlaceholder": "Select...",
     "primaryDatabase": "Primary Database",
     "runQuery": "Run Query",
     "running": "Running...",
