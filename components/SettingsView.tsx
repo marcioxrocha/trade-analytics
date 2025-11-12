@@ -31,13 +31,15 @@ const SettingsView: React.FC = () => {
         autoSaveEnabled,
         toggleAutoSave,
         settingsSaveStatus,
-        syncSettings,
+        syncAllChanges,
         apiConfig,
         exportDataSources,
         importDataSources,
         hasUnsyncedChanges,
         allowDashboardManagement,
         allowDataSourceManagement,
+        department,
+        owner,
     } = useAppContext();
     const { showModal, hideModal } = useDashboardModal();
     
@@ -89,11 +91,13 @@ const SettingsView: React.FC = () => {
 
         if (isValid) {
              if (editingSourceId) {
+                // FIX: Add lastModified property to satisfy the DataSource type.
                 updateDataSource({
                     id: editingSourceId,
                     name: newSourceName,
                     type: newSourceType,
                     connectionString: connectionString,
+                    lastModified: new Date().toISOString(),
                 });
             } else {
                 addDataSource({
@@ -172,7 +176,7 @@ const SettingsView: React.FC = () => {
     
      const handleConfirmSync = async () => {
         try {
-            await syncSettings();
+            await syncAllChanges();
             showModal({
                 title: t('modal.saveSuccessTitle'),
                 content: <p>{t('modal.saveSuccess')}</p>,
@@ -269,6 +273,26 @@ const SettingsView: React.FC = () => {
                             </div>
                         </SettingsCard>
                     </>
+                )}
+                
+                {(department || owner) && (
+                    <SettingsCard title={t('settings.dataSegregation')} description={t('settings.dataSegregationDesc')}>
+                        <h4 className="text-md font-semibold mb-3">{t('settings.activeContext')}</h4>
+                        <div className="space-y-2">
+                            {department && (
+                                <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-3 rounded-md">
+                                    <span className="font-semibold block">department</span>
+                                    <code className="text-sm text-indigo-600 dark:text-indigo-400">{department}</code>
+                                </div>
+                            )}
+                            {owner && (
+                                <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-3 rounded-md">
+                                    <span className="font-semibold block">owner</span>
+                                    <code className="text-sm text-indigo-600 dark:text-indigo-400">{owner}</code>
+                                </div>
+                            )}
+                        </div>
+                    </SettingsCard>
                 )}
 
 

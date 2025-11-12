@@ -202,7 +202,9 @@
       "none": "None",
       "total": "Total",
       "average": "Average"
-    }
+    },
+    "dataContext": "Data Context",
+    "dataContextDesc": "Queries are running with the context: {context}. You can use these as variables (e.g., `{{department}}`)."
   },
   "settings": {
     "title": "Settings",
@@ -261,7 +263,10 @@
     "application": "Application",
     "applicationDesc": "Manage application behavior settings.",
     "autoSave": "Auto Save",
-    "autoSaveDesc": "Automatically save changes to local storage."
+    "autoSaveDesc": "Automatically save changes to local storage.",
+    "dataSegregation": "Data Segregation",
+    "dataSegregationDesc": "The application automatically segregates all data based on the following context. These values are passed as component properties and can be used as variables in your queries.",
+    "activeContext": "Active Context"
   },
   "modal": {
     "ok": "OK",

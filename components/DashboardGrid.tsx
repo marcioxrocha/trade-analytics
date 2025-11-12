@@ -1,5 +1,6 @@
 
 
+
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import DashboardCard from './DashboardCard';
 import Icon from './Icon';
@@ -40,7 +41,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
       variables,
       updateVariable,
       updateAllVariables,
-      syncDashboards,
+      syncAllChanges,
       apiConfig,
       updateActiveDashboardSettings,
       exportDashboards,
@@ -76,10 +77,12 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
         const userVars = variables.filter(v => v.dashboardId === activeDashboardId);
         const fixedVars: Variable[] = [];
         if (department) {
-            fixedVars.push({ id: 'fixed-department', dashboardId: activeDashboardId, name: 'department', value: department });
+            // FIX: Add lastModified property to satisfy the Variable type.
+            fixedVars.push({ id: 'fixed-department', dashboardId: activeDashboardId, name: 'department', value: department, lastModified: new Date().toISOString() });
         }
         if (owner) {
-            fixedVars.push({ id: 'fixed-owner', dashboardId: activeDashboardId, name: 'owner', value: owner });
+            // FIX: Add lastModified property to satisfy the Variable type.
+            fixedVars.push({ id: 'fixed-owner', dashboardId: activeDashboardId, name: 'owner', value: owner, lastModified: new Date().toISOString() });
         }
         return [...userVars, ...fixedVars];
     }, [variables, activeDashboardId, department, owner]);
@@ -273,7 +276,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
     const handleConfirmSync = async () => {
         setIsMenuOpen(false);
         try {
-            await syncDashboards();
+            await syncAllChanges();
             showModal({
                 title: t('modal.saveSuccessTitle'),
                 content: <p>{t('modal.saveSuccess')}</p>,

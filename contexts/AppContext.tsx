@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
-import { ChartCardData, DataSource, Dashboard, AppContextType, Variable, DashboardFormattingSettings, WhiteLabelSettings, SaveStatus, ExportData } from '../types';
-import { DATA_SOURCES_KEY, WHITE_LABEL_KEY, DEFAULT_BRAND_COLOR, APP_SETTINGS_KEY, LAST_ACTIVE_DASHBOARD_ID_KEY, DASHBOARD_CONFIG_PREFIX, DASHBOARD_CARDS_PREFIX, DASHBOARD_VARIABLES_PREFIX, OLD_DASHBOARDS_KEY, OLD_CARDS_KEY, OLD_VARIABLES_KEY } from '../constants';
-import { getConfig, setConfig, setConfigLocal, getConfigsByPrefix, deleteConfig, deleteConfigLocal } from '../services/configService';
+import { ChartCardData, DataSource, Dashboard, AppContextType, Variable, DashboardFormattingSettings, WhiteLabelSettings, SaveStatus, ExportData, DeletionTombstone, DeletionEntityType, AllConfigs, AppSettings } from '../types';
+import { DATA_SOURCES_KEY, WHITE_LABEL_KEY, DEFAULT_BRAND_COLOR, APP_SETTINGS_KEY, LAST_ACTIVE_DASHBOARD_ID_KEY, DASHBOARD_CONFIG_PREFIX, DASHBOARD_CARDS_PREFIX, DASHBOARD_VARIABLES_PREFIX } from '../constants';
+import { setConfig, deleteConfig, getAllConfigs, getLocalTombstones, setLocalTombstones } from '../services/configService';
 import { useLanguage } from './LanguageContext';
 import { DEFAULT_FORMATTING_SETTINGS } from '../services/formattingService';
 import { useApi } from './ApiContext';
@@ -33,92 +33,43 @@ export const AppProvider: React.FC<AppProviderProps> = ({
   const [variables, setVariables] = useState<Variable[]>([]);
   const [activeDashboardId, setActiveDashboardId] = useState<string | null>(null);
   const [dashboardCards, setDashboardCards] = useState<ChartCardData[]>([]);
-  const [whiteLabelSettings, setWhiteLabelSettings] = useState<WhiteLabelSettings>({ brandColor: DEFAULT_BRAND_COLOR });
+  const [whiteLabelSettings, setWhiteLabelSettings] = useState<WhiteLabelSettings>({ brandColor: DEFAULT_BRAND_COLOR, lastModified: new Date().toISOString() });
+  const [appSettings, setAppSettings] = useState<AppSettings>({ autoSave: false, lastModified: new Date().toISOString() });
   const [isLoading, setIsLoading] = useState(true);
   const [settingsSaveStatus, setSettingsSaveStatus] = useState<SaveStatus>('idle');
   const [formattingVersion, setFormattingVersion] = useState(0);
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
-  const [deletedDashboardIds, setDeletedDashboardIds] = useState<string[]>([]);
+  const [deletionTombstones, setDeletionTombstones] = useState<DeletionTombstone[]>([]);
   
   const { t, isReady: isLangReady } = useLanguage();
   const { apiConfig } = useApi();
 
   const hasUnsyncedChanges = useMemo(() => {
-    const hasUnsyncedDashboards = dashboards.some(d => ['unsaved', 'saved-local'].includes(d.saveStatus || 'idle'));
-    const hasUnsyncedSettings = ['unsaved', 'saved-local'].includes(settingsSaveStatus);
-    return hasUnsyncedDashboards || hasUnsyncedSettings || deletedDashboardIds.length > 0;
-  }, [dashboards, settingsSaveStatus, deletedDashboardIds]);
+    const hasUnsavedItems = dashboards.some(d => d.saveStatus === 'unsaved') ||
+                            settingsSaveStatus === 'unsaved';
+    return hasUnsavedItems || deletionTombstones.length > 0;
+  }, [dashboards, settingsSaveStatus, deletionTombstones]);
 
   // Effect to load all data from persistence, runs only once.
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoading(true);
-      const context = { department, owner };
-      const safeFilter = <T,>(item: T | null | undefined): item is T => !!item;
-      
-      const [loadedSources, loadedWhiteLabel, loadedAppSettings] = await Promise.all([
-        getConfig<DataSource[]>(DATA_SOURCES_KEY, apiConfig, context),
-        getConfig<WhiteLabelSettings>(WHITE_LABEL_KEY, apiConfig, context),
-        getConfig<{ autoSave: boolean }>(APP_SETTINGS_KEY, apiConfig),
-      ]);
-      
-      // --- Start of Backward Compatibility Logic ---
-      
-      let loadedDashboards: Dashboard[] = [];
-      let allCards: ChartCardData[] = [];
-      let allVariables: Variable[] = [];
+      const serverState = await getAllConfigs(apiConfig, { department, owner });
+      const now = new Date().toISOString();
 
-      // 1. Try loading with the new granular format first.
-      const granularDashboards = (await getConfigsByPrefix<Dashboard>(DASHBOARD_CONFIG_PREFIX, apiConfig, context)).filter(safeFilter);
-
-      if (granularDashboards.length > 0) {
-        // Granular format found. Load cards and variables granularly.
-        const loadedCardArrays = await getConfigsByPrefix<ChartCardData[]>(DASHBOARD_CARDS_PREFIX, apiConfig, context);
-        const loadedVariableArrays = await getConfigsByPrefix<Variable[]>(DASHBOARD_VARIABLES_PREFIX, apiConfig, context);
-        
-        loadedDashboards = granularDashboards;
-        allCards = loadedCardArrays.flat().filter(safeFilter);
-        allVariables = loadedVariableArrays.flat().filter(safeFilter);
-
-      } else {
-        // 2. If no granular dashboards, check for the old monolithic format.
-        console.log("No granular dashboards found. Checking for legacy monolithic format...");
-        const [
-          legacyDashboards,
-          legacyCards,
-          legacyVariables,
-        ] = await Promise.all([
-          getConfig<Dashboard[]>(OLD_DASHBOARDS_KEY, apiConfig, context),
-          getConfig<ChartCardData[]>(OLD_CARDS_KEY, apiConfig, context),
-          getConfig<Variable[]>(OLD_VARIABLES_KEY, apiConfig, context),
-        ]);
-
-        if (legacyDashboards && legacyDashboards.length > 0) {
-            console.log(`Found ${legacyDashboards.length} legacy dashboards. They will be migrated on the next sync.`);
-            // Mark all legacy dashboards as unsaved to trigger migration on the next sync.
-            loadedDashboards = legacyDashboards.map(d => ({ ...d, saveStatus: 'unsaved' }));
-            allCards = Array.isArray(legacyCards) ? legacyCards.filter(safeFilter) : [];
-            allVariables = Array.isArray(legacyVariables) ? legacyVariables.filter(safeFilter) : [];
-        }
-      }
+      setDataSources(serverState.dataSources || []);
+      setWhiteLabelSettings(serverState.whiteLabelSettings || { brandColor: DEFAULT_BRAND_COLOR, lastModified: now });
+      setAppSettings(serverState.appSettings || { autoSave: false, lastModified: now });
       
-      // --- End of Backward Compatibility Logic ---
-
-      setDataSources(Array.isArray(loadedSources) ? loadedSources.filter(safeFilter) : []);
-      setWhiteLabelSettings(loadedWhiteLabel || { brandColor: DEFAULT_BRAND_COLOR });
-      setAutoSaveEnabled(loadedAppSettings?.autoSave || false);
-      
-      const finalDashboards: Dashboard[] = loadedDashboards
-        .map(d => ({
+      const finalDashboards: Dashboard[] = (serverState.dashboards || []).map(d => ({
         ...d,
         formattingSettings: d.formattingSettings || DEFAULT_FORMATTING_SETTINGS,
-        // If saveStatus is not already set (by migration logic), default to 'idle'.
-        saveStatus: d.saveStatus || 'idle',
+        saveStatus: 'idle',
       }));
 
       setDashboards(finalDashboards);
-      setDashboardCards(allCards);
-      setVariables(allVariables);
+      setDashboardCards(serverState.cards || []);
+      setVariables(serverState.variables || []);
+      setDeletionTombstones(getLocalTombstones()); // Load pending deletions
       
       if (finalDashboards.length > 0) {
         const lastActiveId = localStorage.getItem(LAST_ACTIVE_DASHBOARD_ID_KEY);
@@ -142,11 +93,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({
   useEffect(() => {
     if (!isLoading && dashboards.length === 0 && isLangReady) {
         const newName = t('dashboard.defaultNamePattern', { index: String(dashboards.length + 1) });
+        const now = new Date().toISOString();
         const defaultDashboard: Dashboard = { 
             id: crypto.randomUUID(), 
             name: newName, 
             formattingSettings: DEFAULT_FORMATTING_SETTINGS,
             saveStatus: 'unsaved',
+            lastModified: now,
         };
         setDashboards([defaultDashboard]);
         setActiveDashboardId(defaultDashboard.id);
@@ -155,168 +108,134 @@ export const AppProvider: React.FC<AppProviderProps> = ({
 
     // Effect to persist the last viewed dashboard ID.
     useEffect(() => {
-        // Don't save during the initial data load or if there's no active dashboard.
         if (!isLoading && activeDashboardId) {
             localStorage.setItem(LAST_ACTIVE_DASHBOARD_ID_KEY, activeDashboardId);
         }
     }, [activeDashboardId, isLoading]);
 
-
   const syncAllChanges = useCallback(async (): Promise<void> => {
-    const dashboardsToSync = dashboards.filter(d => ['unsaved', 'saved-local'].includes(d.saveStatus || 'idle'));
-    const isSettingsSyncNeeded = ['unsaved', 'saved-local'].includes(settingsSaveStatus);
+    setDashboards(prev => prev.map(d => ({ ...d, saveStatus: 'syncing' })));
+    setSettingsSaveStatus('syncing');
     const context = { department, owner };
 
-    if (dashboardsToSync.length === 0 && deletedDashboardIds.length === 0 && !isSettingsSyncNeeded) {
-        return;
-    }
-
-    setDashboards(prev => prev.map(d => dashboardsToSync.some(ds => ds.id === d.id) ? { ...d, saveStatus: 'syncing' } : d));
-    if (isSettingsSyncNeeded) setSettingsSaveStatus('syncing');
-
-    const promises: Promise<any>[] = [];
-
-    // 1. Sync updated/new dashboards and their children
-    dashboardsToSync.forEach(d => {
-        const cards = dashboardCards.filter(c => c.dashboardId === d.id);
-        const vars = variables.filter(v => v.dashboardId === d.id);
-        
-        promises.push(setConfig(`${DASHBOARD_CONFIG_PREFIX}${d.id}`, d, apiConfig, context));
-        promises.push(setConfig(`${DASHBOARD_CARDS_PREFIX}${d.id}`, cards, apiConfig, context));
-        promises.push(setConfig(`${DASHBOARD_VARIABLES_PREFIX}${d.id}`, vars, apiConfig, context));
-    });
-
-    // 2. Sync deleted dashboards
-    deletedDashboardIds.forEach(id => {
-        promises.push(deleteConfig(`${DASHBOARD_CONFIG_PREFIX}${id}`, apiConfig, context));
-        promises.push(deleteConfig(`${DASHBOARD_CARDS_PREFIX}${id}`, apiConfig, context));
-        promises.push(deleteConfig(`${DASHBOARD_VARIABLES_PREFIX}${id}`, apiConfig, context));
-    });
-
-    // 3. Sync global settings if needed
-    if (isSettingsSyncNeeded) {
-        promises.push(setConfig(DATA_SOURCES_KEY, dataSources, apiConfig, context));
-        promises.push(setConfig(WHITE_LABEL_KEY, whiteLabelSettings, apiConfig, context));
-        promises.push(setConfig(APP_SETTINGS_KEY, { autoSave: autoSaveEnabled }, apiConfig));
-    }
-
     try {
-        await Promise.all(promises);
-        
-        // Success: Update statuses and clean up
-        setDashboards(prev => prev.map(d => dashboardsToSync.some(ds => ds.id === d.id) ? { ...d, saveStatus: 'saved-remote' } : d));
-        if (isSettingsSyncNeeded) setSettingsSaveStatus('saved-remote');
-        
-        if (deletedDashboardIds.length > 0) {
-            setDashboardCards(prev => prev.filter(c => !deletedDashboardIds.includes(c.dashboardId)));
-            setVariables(prev => prev.filter(v => !deletedDashboardIds.includes(v.dashboardId)));
-            setDeletedDashboardIds([]);
-        }
+        const serverState = await getAllConfigs(apiConfig, context);
+        const syncPromises: Promise<any>[] = [];
 
+        // --- MERGE MONOLITHIC SETTINGS (DataSources, WhiteLabel, AppSettings) ---
+        const mergeMonolithicArray = <T extends { id: string; lastModified: string }>(local: T[], server: T[], type: DeletionEntityType, key: string) => {
+            const serverMap = new Map(server.map(item => [item.id, item]));
+            const mergedMap = new Map(serverMap);
+            local.forEach(localItem => {
+                const serverItem = serverMap.get(localItem.id);
+                if (!serverItem || new Date(localItem.lastModified) > new Date(serverItem.lastModified)) {
+                    mergedMap.set(localItem.id, localItem);
+                }
+            });
+            deletionTombstones.filter(t => t.type === type).forEach(tombstone => mergedMap.delete(tombstone.id));
+            const finalArray = Array.from(mergedMap.values());
+            if (JSON.stringify(finalArray) !== JSON.stringify(server)) {
+                syncPromises.push(setConfig(key, finalArray, apiConfig, context));
+            }
+        };
+
+        const mergeMonolithicObject = <T extends { lastModified: string }>(local: T | null, server: T | null, key: string) => {
+            if (local && (!server || new Date(local.lastModified) > new Date(server.lastModified))) {
+                syncPromises.push(setConfig(key, local, apiConfig, context));
+            }
+        };
+
+        mergeMonolithicArray(dataSources, serverState.dataSources, 'dataSource', DATA_SOURCES_KEY);
+        mergeMonolithicObject(whiteLabelSettings, serverState.whiteLabelSettings, WHITE_LABEL_KEY);
+        mergeMonolithicObject(appSettings, serverState.appSettings, APP_SETTINGS_KEY);
+
+        // --- MERGE GRANULAR ITEMS (Dashboards and their children) ---
+        const serverDashboardsMap = new Map(serverState.dashboards.map(d => [d.id, d]));
+        const localDashboardsMap = new Map(dashboards.map(d => [d.id, d]));
+        const allDashboardIds:any = new Set([...serverDashboardsMap.keys(), ...localDashboardsMap.keys()]);
+
+        const groupById = <T extends { dashboardId: string }>(items: T[]) => items.reduce((acc, item) => {
+            (acc[item.dashboardId] = acc[item.dashboardId] || []).push(item);
+            return acc;
+        }, {} as Record<string, T[]>);
+
+        const serverCardsByDash = groupById(serverState.cards);
+        const localCardsByDash:any = groupById(dashboardCards);
+        const serverVarsByDash = groupById(serverState.variables);
+        const localVarsByDash:any = groupById(variables);
+
+        for (const dashId of allDashboardIds) {
+            const localDash:any = localDashboardsMap.get(dashId);
+            const serverDash = serverDashboardsMap.get(dashId);
+            if (localDash && (!serverDash || new Date(localDash.lastModified) > new Date(serverDash.lastModified))) {
+                syncPromises.push(setConfig(`${DASHBOARD_CONFIG_PREFIX}${dashId}`, localDash, apiConfig, context));
+            }
+            mergeMonolithicArray(localCardsByDash[dashId] || [], serverCardsByDash[dashId] || [], 'card', `${DASHBOARD_CARDS_PREFIX}${dashId}`);
+            mergeMonolithicArray(localVarsByDash[dashId] || [], serverVarsByDash[dashId] || [], 'variable', `${DASHBOARD_VARIABLES_PREFIX}${dashId}`);
+        }
+        
+        // --- PROCESS DELETIONS FOR DASHBOARDS ---
+        deletionTombstones.filter(t => t.type === 'dashboard').forEach(tombstone => {
+            syncPromises.push(deleteConfig(`${DASHBOARD_CONFIG_PREFIX}${tombstone.id}`, apiConfig, context));
+            syncPromises.push(deleteConfig(`${DASHBOARD_CARDS_PREFIX}${tombstone.id}`, apiConfig, context));
+            syncPromises.push(deleteConfig(`${DASHBOARD_VARIABLES_PREFIX}${tombstone.id}`, apiConfig, context));
+        });
+
+        await Promise.all(syncPromises);
+
+        // --- POST-SYNC CLEANUP ---
+        const finalServerState = await getAllConfigs(apiConfig, context);
+        const now = new Date().toISOString();
+        setDataSources(finalServerState.dataSources || []);
+        setWhiteLabelSettings(finalServerState.whiteLabelSettings || { brandColor: DEFAULT_BRAND_COLOR, lastModified: now });
+        setAppSettings(finalServerState.appSettings || { autoSave: false, lastModified: now });
+        setDashboards((finalServerState.dashboards || []).map(d => ({ ...d, saveStatus: 'saved-remote' })));
+        setDashboardCards(finalServerState.cards || []);
+        setVariables(finalServerState.variables || []);
+        
+        setDeletionTombstones([]);
+        setLocalTombstones([]);
+        setSettingsSaveStatus('saved-remote');
+        
     } catch (error) {
         console.error("Failed to sync all changes with server:", error);
-        setDashboards(prev => prev.map(d => dashboardsToSync.some(ds => ds.id === d.id) ? { ...d, saveStatus: 'saved-local' } : d));
-        if (isSettingsSyncNeeded) setSettingsSaveStatus('saved-local');
+        setDashboards(prev => prev.map(d => ({ ...d, saveStatus: 'saved-local' })));
+        setSettingsSaveStatus('saved-local');
         throw new Error(t('modal.saveError'));
     }
-  }, [
-      dashboards, dashboardCards, variables, settingsSaveStatus, deletedDashboardIds,
-      dataSources, whiteLabelSettings, autoSaveEnabled, apiConfig, department, owner, t
-  ]);
-  
+  }, [dashboards, dashboardCards, variables, dataSources, whiteLabelSettings, appSettings, deletionTombstones, apiConfig, department, owner, t]);
+
   const syncDashboards = syncAllChanges;
   const syncSettings = syncAllChanges;
   
-  const saveToLocal = useCallback(() => {
-    try {
-        const dashboardsToSave = dashboards.filter(d => d.saveStatus === 'unsaved');
-        const settingsToSave = settingsSaveStatus === 'unsaved';
-
-        // Global settings
-        if(settingsToSave) {
-            setConfigLocal(DATA_SOURCES_KEY, dataSources, apiConfig);
-            setConfigLocal(WHITE_LABEL_KEY, whiteLabelSettings, apiConfig);
-            setConfigLocal(APP_SETTINGS_KEY, { autoSave: autoSaveEnabled }, apiConfig);
-        }
-
-        // Granular dashboard settings
-        dashboardsToSave.forEach(d => {
-            const cards = dashboardCards.filter(c => c.dashboardId === d.id);
-            const vars = variables.filter(v => v.dashboardId === d.id);
-            setConfigLocal(`${DASHBOARD_CONFIG_PREFIX}${d.id}`, d, apiConfig);
-            setConfigLocal(`${DASHBOARD_CARDS_PREFIX}${d.id}`, cards, apiConfig);
-            setConfigLocal(`${DASHBOARD_VARIABLES_PREFIX}${d.id}`, vars, apiConfig);
-        });
-        
-        // Handle local deletions
-        deletedDashboardIds.forEach(id => {
-            deleteConfigLocal(`${DASHBOARD_CONFIG_PREFIX}${id}`);
-            deleteConfigLocal(`${DASHBOARD_CARDS_PREFIX}${id}`);
-            deleteConfigLocal(`${DASHBOARD_VARIABLES_PREFIX}${id}`);
-        });
-        if (deletedDashboardIds.length > 0) {
-            setDeletedDashboardIds([]);
-        }
-
-    } catch (error) {
-        console.error("Failed to save changes to local storage:", error);
-        throw error;
-    }
-  }, [dataSources, dashboards, dashboardCards, variables, whiteLabelSettings, autoSaveEnabled, settingsSaveStatus, deletedDashboardIds, apiConfig]);
-
-  // Auto-save effect
-  useEffect(() => {
-    const needsSave = dashboards.some(d => d.saveStatus === 'unsaved') || settingsSaveStatus === 'unsaved' || deletedDashboardIds.length > 0;
-
-    if (!autoSaveEnabled || !needsSave) {
-        return;
-    }
-
-    const timer = setTimeout(() => {
-        setDashboards(prev => prev.map(d => d.saveStatus === 'unsaved' ? { ...d, saveStatus: 'saving-local' } : d));
-        if (settingsSaveStatus === 'unsaved') setSettingsSaveStatus('saving-local');
-
-        try {
-            saveToLocal();
-            setDashboards(prev => prev.map(d => d.saveStatus === 'saving-local' ? { ...d, saveStatus: 'saved-local' } : d));
-            if (settingsSaveStatus === 'saving-local') setSettingsSaveStatus('saved-local');
-        } catch (error) {
-            console.error("Auto-save to local storage failed:", error);
-            setDashboards(prev => prev.map(d => d.saveStatus === 'saving-local' ? { ...d, saveStatus: 'unsaved' } : d));
-            if (settingsSaveStatus === 'saving-local') setSettingsSaveStatus('unsaved');
-        }
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [dashboards, settingsSaveStatus, deletedDashboardIds, autoSaveEnabled, saveToLocal]);
-
-  const setDashboardUnsaved = useCallback((dashboardId: string | null) => {
-    if (!dashboardId) return;
-    setDashboards(prev => prev.map(d => d.id === dashboardId ? { ...d, saveStatus: 'unsaved' } : d));
-  }, []);
-
-  const addDataSource = useCallback((newSource: Omit<DataSource, 'id'>) => {
-    const newSourceWithId: DataSource = { ...newSource, id: crypto.randomUUID() };
+  const addDataSource = useCallback((newSource: Omit<DataSource, 'id' | 'lastModified'>) => {
+    const now = new Date().toISOString();
+    const newSourceWithId: DataSource = { ...newSource, id: crypto.randomUUID(), lastModified: now };
     setDataSources(prev => [...prev, newSourceWithId]);
     setSettingsSaveStatus('unsaved');
   }, []);
 
   const updateDataSource = useCallback((updatedSource: DataSource) => {
-    setDataSources(prev => prev.map(source => source.id === updatedSource.id ? updatedSource : source));
+    const now = new Date().toISOString();
+    setDataSources(prev => prev.map(source => source.id === updatedSource.id ? {...updatedSource, lastModified: now } : source));
     setSettingsSaveStatus('unsaved');
   }, []);
 
   const removeDataSource = useCallback((id: string) => {
+    const now = new Date().toISOString();
+    setDeletionTombstones(prev => [...prev, {id, type: 'dataSource', deletedAt: now }]);
     setDataSources(prev => prev.filter(source => source.id !== id));
     setSettingsSaveStatus('unsaved');
   }, []);
 
   const addDashboard = useCallback((name: string) => {
+    const now = new Date().toISOString();
     const newDashboard: Dashboard = { 
         name, 
         id: crypto.randomUUID(), 
         formattingSettings: DEFAULT_FORMATTING_SETTINGS,
-        saveStatus: 'unsaved'
+        saveStatus: 'unsaved',
+        lastModified: now,
     };
     setDashboards(prev => [...prev, newDashboard]);
     setActiveDashboardId(newDashboard.id);
@@ -326,16 +245,18 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     const originalDashboard = dashboards.find(d => d.id === dashboardId);
     if (!originalDashboard) return;
 
+    const now = new Date().toISOString();
     const newDashboard: Dashboard = {
       ...originalDashboard,
       id: crypto.randomUUID(),
       name: newName,
-      saveStatus: 'unsaved'
+      saveStatus: 'unsaved',
+      lastModified: now,
     };
     const originalCards = dashboardCards.filter(c => c.dashboardId === dashboardId);
-    const newCards = originalCards.map(card => ({ ...card, id: crypto.randomUUID(), dashboardId: newDashboard.id }));
+    const newCards = originalCards.map(card => ({ ...card, id: crypto.randomUUID(), dashboardId: newDashboard.id, lastModified: now }));
     const originalVariables = variables.filter(v => v.dashboardId === dashboardId);
-    const newVariables = originalVariables.map(variable => ({ ...variable, id: crypto.randomUUID(), dashboardId: newDashboard.id }));
+    const newVariables = originalVariables.map(variable => ({ ...variable, id: crypto.randomUUID(), dashboardId: newDashboard.id, lastModified: now }));
 
     setDashboards(prev => [...prev, newDashboard]);
     setDashboardCards(prev => [...prev, ...newCards]);
@@ -344,6 +265,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({
   }, [dashboards, dashboardCards, variables]);
 
   const removeDashboard = useCallback((id: string) => {
+    const now = new Date().toISOString();
+    setDeletionTombstones(prev => [...prev, { id, type: 'dashboard', deletedAt: now }]);
     setDashboards(prevDashboards => {
         const updatedDashboards = prevDashboards.filter(d => d.id !== id);
         if (activeDashboardId === id) {
@@ -355,37 +278,46 @@ export const AppProvider: React.FC<AppProviderProps> = ({
         }
         return updatedDashboards;
     });
-    setDeletedDashboardIds(prev => [...new Set([...prev, id])]);
-    setSettingsSaveStatus('unsaved');
   }, [activeDashboardId]);
 
   const updateDashboardName = useCallback((id: string, newName: string) => {
+    const now = new Date().toISOString();
     setDashboards(prev => prev.map(d => 
-        d.id === id ? { ...d, name: newName, saveStatus: 'unsaved' } : d
+        d.id === id ? { ...d, name: newName, saveStatus: 'unsaved', lastModified: now } : d
     ));
   }, []);
   
   const updateActiveDashboardSettings = useCallback((settings: DashboardFormattingSettings) => {
+      const now = new Date().toISOString();
       setDashboards(prev => prev.map(d => 
-          d.id === activeDashboardId ? { ...d, formattingSettings: settings, saveStatus: 'unsaved' } : d
+          d.id === activeDashboardId ? { ...d, formattingSettings: settings, saveStatus: 'unsaved', lastModified: now } : d
       ));
       setFormattingVersion(v => v + 1);
   }, [activeDashboardId]);
 
   const updateActiveDashboardScriptLibrary = useCallback((script: string) => {
+    const now = new Date().toISOString();
     setDashboards(prev => prev.map(d => 
-        d.id === activeDashboardId ? { ...d, scriptLibrary: script, saveStatus: 'unsaved' } : d
+        d.id === activeDashboardId ? { ...d, scriptLibrary: script, saveStatus: 'unsaved', lastModified: now } : d
     ));
   }, [activeDashboardId]);
 
 
-  const updateWhiteLabelSettings = useCallback((settings: WhiteLabelSettings) => {
-    setWhiteLabelSettings(settings);
+  const updateWhiteLabelSettings = useCallback((settings: Omit<WhiteLabelSettings, 'lastModified'>) => {
+    const now = new Date().toISOString();
+    setWhiteLabelSettings({ ...settings, lastModified: now });
     setSettingsSaveStatus('unsaved');
   }, []);
 
-  const addCard = useCallback((newCard: Omit<ChartCardData, 'id'>) => {
-    const newCardWithId: ChartCardData = { ...newCard, id: crypto.randomUUID() };
+  const setDashboardUnsaved = useCallback((dashboardId: string | null) => {
+    if (!dashboardId) return;
+    const now = new Date().toISOString();
+    setDashboards(prev => prev.map(d => d.id === dashboardId ? { ...d, saveStatus: 'unsaved', lastModified: now } : d));
+  }, []);
+
+  const addCard = useCallback((newCard: Omit<ChartCardData, 'id' | 'lastModified'>) => {
+    const now = new Date().toISOString();
+    const newCardWithId: ChartCardData = { ...newCard, id: crypto.randomUUID(), lastModified: now };
     setDashboardCards(prev => [...prev, newCardWithId]);
     setDashboardUnsaved(newCard.dashboardId);
   }, [setDashboardUnsaved]);
@@ -394,7 +326,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     const cardToClone = dashboardCards.find(c => c.id === cardId);
     if (!cardToClone) return;
 
-    const newCard: ChartCardData = { ...cardToClone, id: crypto.randomUUID(), title: `${cardToClone.title} - Copy` };
+    const now = new Date().toISOString();
+    const newCard: ChartCardData = { ...cardToClone, id: crypto.randomUUID(), title: `${cardToClone.title} - Copy`, lastModified: now };
     
     setDashboardCards(prev => {
       const originalIndex = prev.findIndex(c => c.id === cardId);
@@ -407,19 +340,23 @@ export const AppProvider: React.FC<AppProviderProps> = ({
   }, [dashboardCards, setDashboardUnsaved]);
 
   const updateCard = useCallback((updatedCard: ChartCardData) => {
-    setDashboardCards(prev => prev.map(card => card.id === updatedCard.id ? updatedCard : card));
+    const now = new Date().toISOString();
+    setDashboardCards(prev => prev.map(card => card.id === updatedCard.id ? { ...updatedCard, lastModified: now } : card));
     setDashboardUnsaved(updatedCard.dashboardId);
   }, [setDashboardUnsaved]);
 
   const removeCard = useCallback((id: string) => {
     const cardToRemove = dashboardCards.find(c => c.id === id);
     if (cardToRemove) {
+      const now = new Date().toISOString();
+      setDeletionTombstones(prev => [...prev, { id, type: 'card', parentId: cardToRemove.dashboardId, deletedAt: now }]);
       setDashboardCards(prev => prev.filter(card => card.id !== id));
       setDashboardUnsaved(cardToRemove.dashboardId);
     }
   }, [dashboardCards, setDashboardUnsaved]);
 
   const reorderDashboardCards = useCallback((dashboardId: string, orderedCardIds: string[]) => {
+    setDashboardUnsaved(dashboardId);
     setDashboardCards(prevCards => {
         const cardsForOtherDashboards = prevCards.filter(c => c.dashboardId !== dashboardId);
         const cardsForThisDashboard = prevCards.filter(c => c.dashboardId === dashboardId);
@@ -428,23 +365,26 @@ export const AppProvider: React.FC<AppProviderProps> = ({
         if (orderedCards.length !== cardsForThisDashboard.length) return prevCards;
         return [...cardsForOtherDashboards, ...orderedCards];
     });
-    setDashboardUnsaved(dashboardId);
   }, [setDashboardUnsaved]);
   
-  const addVariable = useCallback((newVariable: Omit<Variable, 'id'>) => {
-    const newVarWithId: Variable = { ...newVariable, id: crypto.randomUUID() };
+  const addVariable = useCallback((newVariable: Omit<Variable, 'id' | 'lastModified'>) => {
+    const now = new Date().toISOString();
+    const newVarWithId: Variable = { ...newVariable, id: crypto.randomUUID(), lastModified: now };
     setVariables(prev => [...prev, newVarWithId]);
     setDashboardUnsaved(newVariable.dashboardId);
   }, [setDashboardUnsaved]);
   
   const updateVariable = useCallback((updatedVariable: Variable) => {
-    setVariables(prev => prev.map(v => v.id === updatedVariable.id ? updatedVariable : v));
+    const now = new Date().toISOString();
+    setVariables(prev => prev.map(v => v.id === updatedVariable.id ? { ...updatedVariable, lastModified: now } : v));
     setDashboardUnsaved(updatedVariable.dashboardId);
   }, [setDashboardUnsaved]);
 
   const removeVariable = useCallback((id: string) => {
     const variableToRemove = variables.find(v => v.id === id);
     if (variableToRemove) {
+        const now = new Date().toISOString();
+        setDeletionTombstones(prev => [...prev, { id, type: 'variable', parentId: variableToRemove.dashboardId, deletedAt: now }]);
         setVariables(prev => prev.filter(v => v.id !== id));
         setDashboardUnsaved(variableToRemove.dashboardId);
     }
@@ -452,14 +392,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({
 
   const updateAllVariables = useCallback((dashboardId: string, variablesForDashboard: Variable[]) => {
     if (!dashboardId) return;
+    const now = new Date().toISOString();
+    const updatedVariablesWithTimestamp = variablesForDashboard.map(v => ({...v, lastModified: now }));
 
     setVariables(currentVariables => {
         const otherVars = currentVariables.filter(v => v.dashboardId !== dashboardId);
-        return [...otherVars, ...variablesForDashboard];
+        return [...otherVars, ...updatedVariablesWithTimestamp];
     });
 
     setDashboardUnsaved(dashboardId);
-}, [setDashboardUnsaved]);
+  }, [setDashboardUnsaved]);
 
   const exportDashboards = useCallback((dashboardIds: string[]) => {
     const cardsToExport = dashboardCards.filter(c => dashboardIds.includes(c.dashboardId));
@@ -491,6 +433,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
   }, [dashboards, dashboardCards, variables, dataSources]);
 
   const importDashboards = useCallback((data: ExportData, selectedDashboardsFromFile: Dashboard[]) => {
+    const now = new Date().toISOString();
     const dataSourceIdMap = new Map<string, string>();
     const newDataSources: DataSource[] = [];
     const allDataSourceNames = new Set(dataSources.map(ds => ds.name));
@@ -508,6 +451,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
             newDataSources.push({
                 ...dsFromFile,
                 id: newId,
+                lastModified: now
             });
             allDataSourceNames.add(dsFromFile.name); // Handle duplicates within the import file
         }
@@ -533,13 +477,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({
             }
             newName = `${dashboardFromFile.name} (${copyIndex})`;
         }
-        allDashboardNames.add(newName); // Handle duplicates within the import file
+        allDashboardNames.add(newName);
 
         newDashboards.push({
             ...dashboardFromFile,
             id: newId,
             name: newName,
             saveStatus: 'unsaved',
+            lastModified: now,
         });
     });
 
@@ -553,6 +498,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
                 id: crypto.randomUUID(),
                 dashboardId: dashboardIdMap.get(card.dashboardId)!,
                 dataSourceId: newDataSourceId,
+                lastModified: now,
             });
         }
     });
@@ -563,6 +509,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
                 ...variable,
                 id: crypto.randomUUID(),
                 dashboardId: dashboardIdMap.get(variable.dashboardId)!,
+                lastModified: now,
             });
         }
     });
@@ -598,7 +545,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
 
   const importDataSources = useCallback((data: ExportData, selectedDataSourcesFromFile: DataSource[]) => {
     if (!data.dataSources) return;
-
+    const now = new Date().toISOString();
     const allDataSourceNames = new Set(dataSources.map(ds => ds.name));
     const newDataSources: DataSource[] = [];
 
@@ -617,6 +564,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
             ...dsFromFile,
             id: crypto.randomUUID(),
             name: newName,
+            lastModified: now,
         });
     });
     
@@ -629,10 +577,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({
   }, []);
 
    const toggleAutoSave = useCallback(() => {
-      const newValue = !autoSaveEnabled;
-      setAutoSaveEnabled(newValue);
-      setSettingsSaveStatus('unsaved');
-  }, [autoSaveEnabled]);
+        const now = new Date().toISOString();
+        setAppSettings(prev => ({ autoSave: !prev.autoSave, lastModified: now }));
+        setSettingsSaveStatus('unsaved');
+    }, []);
 
   const value = useMemo(() => ({
     dataSources,
@@ -641,6 +589,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     activeDashboardId,
     dashboardCards,
     whiteLabelSettings,
+    appSettings,
     addDataSource,
     updateDataSource,
     removeDataSource,
@@ -667,9 +616,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     importDataSources,
     isLoading,
     settingsSaveStatus,
-    syncDashboards,
-    syncSettings,
-    autoSaveEnabled,
+    syncAllChanges,
+    autoSaveEnabled: appSettings.autoSave,
     toggleAutoSave,
     formattingVersion,
     apiConfig,
@@ -681,11 +629,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     allowDataSourceManagement,
     showInfoScreen,
   }), [
-    dataSources, dashboards, variables, activeDashboardId, dashboardCards, whiteLabelSettings,
+    dataSources, dashboards, variables, activeDashboardId, dashboardCards, whiteLabelSettings, appSettings,
     addDataSource, updateDataSource, removeDataSource, addDashboard, duplicateDashboard, removeDashboard, 
     memoizedSetActiveDashboardId, updateDashboardName, updateActiveDashboardSettings, updateActiveDashboardScriptLibrary, updateWhiteLabelSettings, addCard, 
     cloneCard, updateCard, removeCard, reorderDashboardCards, addVariable, updateVariable, removeVariable,
-    updateAllVariables, exportDashboards, importDashboards, exportDataSources, importDataSources, isLoading, settingsSaveStatus, syncDashboards, syncSettings, autoSaveEnabled, toggleAutoSave, formattingVersion,
+    updateAllVariables, exportDashboards, importDashboards, exportDataSources, importDataSources, isLoading, settingsSaveStatus, syncAllChanges, toggleAutoSave, formattingVersion,
     apiConfig, instanceKey, department, owner, hasUnsyncedChanges, allowDashboardManagement, allowDataSourceManagement, showInfoScreen
   ]);
 

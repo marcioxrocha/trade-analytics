@@ -241,6 +241,8 @@ const EnvironmentVariablesView: React.FC<EnvironmentVariablesViewProps> = ({ dep
                     <br />
                     {"  "}<code className="text-sky-400">owner</code> <code className="text-purple-400">text</code> <code className="text-indigo-400">NULL</code>,
                     <br />
+                    {"  "}<code className="text-sky-400">last_modified</code> <code className="text-purple-400">timestamptz</code> <code className="text-indigo-400">NOT NULL DEFAULT</code> <code className="text-teal-400">now()</code>,
+                    <br />
                     {"  "}<code className="text-indigo-400">CONSTRAINT</code> <code className="text-teal-400">analytics_builder_configs_pkey</code> <code className="text-indigo-400">PRIMARY KEY</code> (id)
                     <br />
                     );

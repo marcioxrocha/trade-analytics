@@ -2,8 +2,8 @@
 // to store configurations as key-value pairs, where the key is a combination
 // of the tenant ID and the configuration key (e.g., 'tenant123:dataSources').
 
-import { ApiConfig, DataSource, DatabaseType } from '../types';
-import { DATA_SOURCES_KEY } from '../constants';
+import { ApiConfig, DataSource, DatabaseType, AllConfigs, DeletionTombstone, DeletionEntityType } from '../types';
+import { DATA_SOURCES_KEY, WHITE_LABEL_KEY, APP_SETTINGS_KEY, DASHBOARD_CONFIG_PREFIX, DASHBOARD_CARDS_PREFIX, DASHBOARD_VARIABLES_PREFIX } from '../constants';
 
 interface RequestContext {
     department?: string;
@@ -11,6 +11,7 @@ interface RequestContext {
 }
 
 const LOCAL_STORAGE_PREFIX = 'analytics_builder_';
+const DELETION_TOMBSTONES_KEY = 'deletion_tombstones';
 const ENCRYPT_PREFIX = 'enc::';
 
 
@@ -130,6 +131,78 @@ export const deleteConfigLocal = (key: string): void => {
 };
 
 
+export const getLocalTombstones = (): DeletionTombstone[] => {
+    return getLocalItem<DeletionTombstone[]>(DELETION_TOMBSTONES_KEY) || [];
+}
+
+export const setLocalTombstones = (tombstones: DeletionTombstone[]): void => {
+    setLocalItem(DELETION_TOMBSTONES_KEY, tombstones);
+}
+
+
+/**
+ * Fetches all configurations scoped to the current context from the backend.
+ * This is crucial for the sync mechanism to compare local vs. remote state.
+ * @param apiConfig The instance-specific API configuration.
+ * @param context The request context (department, owner).
+ * @returns A promise that resolves with an object containing all configurations.
+ */
+export const getAllConfigs = async (apiConfig: ApiConfig, context?: RequestContext): Promise<AllConfigs> => {
+    const emptyState: AllConfigs = {
+        dashboards: [], cards: [], variables: [], dataSources: [],
+        whiteLabelSettings: null, appSettings: null
+    };
+
+    const supabase = await createSupabaseClient(apiConfig);
+    if (supabase) {
+        try {
+            let query = supabase.from(SUPABASE_TABLE_NAME).select('key, value');
+            const tenantId = apiConfig.TENANT_ID || null;
+            if (tenantId) query = query.eq('tenant_id', tenantId);
+            if (context?.department) query = query.eq('department', context.department);
+            if (context?.owner) query = query.eq('owner', context.owner);
+
+            const { data, error } = await query;
+            if (error) throw error;
+            
+            if (!data) return emptyState;
+
+            const result: AllConfigs = { ...emptyState };
+            data.forEach(item => {
+                if (item.key.startsWith(DASHBOARD_CONFIG_PREFIX)) result.dashboards.push(item.value);
+                else if (item.key.startsWith(DASHBOARD_CARDS_PREFIX)) result.cards.push(...item.value);
+                else if (item.key.startsWith(DASHBOARD_VARIABLES_PREFIX)) result.variables.push(...item.value);
+                else if (item.key === DATA_SOURCES_KEY) result.dataSources = item.value;
+                else if (item.key === WHITE_LABEL_KEY) result.whiteLabelSettings = item.value;
+                else if (item.key === APP_SETTINGS_KEY) result.appSettings = item.value;
+            });
+            return result;
+        } catch (error) {
+             console.warn(`Supabase getAllConfigs failed, falling back to local. Error:`, error);
+        }
+    }
+    
+    // Fallback to local storage if API fails or isn't configured
+    console.log("getAllConfigs falling back to local storage.");
+    const localDashboards = getLocalItem<any[]>(DASHBOARD_CONFIG_PREFIX)?.flat() || [];
+    const localCards = getLocalItem<any[]>(DASHBOARD_CARDS_PREFIX)?.flat() || [];
+    const localVariables = getLocalItem<any[]>(DASHBOARD_VARIABLES_PREFIX)?.flat() || [];
+    const localDataSources = getLocalItem<DataSource[]>(DATA_SOURCES_KEY) || [];
+    const localWhiteLabel = getLocalItem<any>(WHITE_LABEL_KEY);
+    const localAppSettings = getLocalItem<any>(APP_SETTINGS_KEY);
+
+    return {
+        dashboards: localDashboards,
+        cards: localCards,
+        variables: localVariables,
+        dataSources: localDataSources,
+        whiteLabelSettings: localWhiteLabel,
+        appSettings: localAppSettings,
+    };
+};
+
+
+
 /**
  * Fetches a specific configuration value by its key from the backend.
  * Falls back to localStorage on API failure for offline/demo support.
@@ -151,9 +224,9 @@ export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: 
             const department = context?.department || null;
             const owner = context?.owner || null;
 
-            if (tenantId) query = query.eq('tenant_id', tenantId); else query = query.is('tenant_id', null);
-            if (department) query = query.eq('department', department); else query = query.is('department', null);
-            if (owner) query = query.eq('owner', owner); else query = query.is('owner', null);
+            if (tenantId) query = query.eq('tenant_id', tenantId);
+            if (department) query = query.eq('department', department);
+            if (owner) query = query.eq('owner', owner);
             
             const { data, error } = await query.maybeSingle();
 
@@ -237,9 +310,9 @@ export const getConfigsByPrefix = async <T>(prefix: string, apiConfig: ApiConfig
             const department = context?.department || null;
             const owner = context?.owner || null;
 
-            if (tenantId) query = query.eq('tenant_id', tenantId); else query = query.is('tenant_id', null);
-            if (department) query = query.eq('department', department); else query = query.is('department', null);
-            if (owner) query = query.eq('owner', owner); else query = query.is('owner', null);
+            if (tenantId) query = query.eq('tenant_id', tenantId);
+            if (department) query = query.eq('department', department);
+            if (owner) query = query.eq('owner', owner);
 
             const { data, error } = await query;
 
@@ -318,7 +391,8 @@ export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, 
                 value,
                 tenant_id: tenantId,
                 department,
-                owner
+                owner,
+                last_modified: new Date().toISOString(),
             };
 
             let selectQuery = supabase
@@ -326,15 +400,15 @@ export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, 
                 .select('id')
                 .eq('key', key);
             
-            if (tenantId) selectQuery = selectQuery.eq('tenant_id', tenantId); else selectQuery = selectQuery.is('tenant_id', null);
-            if (department) selectQuery = selectQuery.eq('department', department); else selectQuery = selectQuery.is('department', null);
-            if (owner) selectQuery = selectQuery.eq('owner', owner); else selectQuery = selectQuery.is('owner', null);
+            if (tenantId) selectQuery = selectQuery.eq('tenant_id', tenantId);
+            if (department) selectQuery = selectQuery.eq('department', department);
+            if (owner) selectQuery = selectQuery.eq('owner', owner);
 
             const { data: existing, error: selectError } = await selectQuery.maybeSingle();
             if (selectError) throw selectError;
 
             const { error: finalError } = existing
-                ? await supabase.from(SUPABASE_TABLE_NAME).update({ value }).eq('id', existing.id)
+                ? await supabase.from(SUPABASE_TABLE_NAME).update({ value: record.value, last_modified: record.last_modified }).eq('id', existing.id)
                 : await supabase.from(SUPABASE_TABLE_NAME).insert(record);
             
             if (finalError) throw finalError;
@@ -402,9 +476,9 @@ export const deleteConfig = async (key: string, apiConfig: ApiConfig, context?: 
             const department = context?.department || null;
             const owner = context?.owner || null;
 
-            if (tenantId) query = query.eq('tenant_id', tenantId); else query = query.is('tenant_id', null);
-            if (department) query = query.eq('department', department); else query = query.is('department', null);
-            if (owner) query = query.eq('owner', owner); else query = query.is('owner', null);
+            if (tenantId) query = query.eq('tenant_id', tenantId);
+            if (department) query = query.eq('department', department);
+            if (owner) query = query.eq('owner', owner);
 
             const { error } = await query;
             if (error) throw error;

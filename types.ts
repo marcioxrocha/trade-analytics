@@ -39,6 +39,12 @@ export interface DashboardFormattingSettings {
 
 export interface WhiteLabelSettings {
   brandColor: string;
+  lastModified: string;
+}
+
+export interface AppSettings {
+    autoSave: boolean;
+    lastModified: string;
 }
 
 export interface Dashboard {
@@ -47,6 +53,7 @@ export interface Dashboard {
   formattingSettings: DashboardFormattingSettings;
   scriptLibrary?: string; // Reusable JavaScript functions for this dashboard
   saveStatus?: SaveStatus;
+  lastModified: string;
 }
 
 export interface VariableOption {
@@ -62,6 +69,7 @@ export interface Variable {
   isExpression?: boolean; // Indicates if the value should be evaluated as a JS expression
   options?: VariableOption[]; // For creating dropdowns
   showOnDashboard?: boolean; // To show as a filter on the dashboard
+  lastModified: string;
 }
 
 export enum ChartType {
@@ -106,6 +114,7 @@ export interface ChartCardData {
   kpiConfig?: {
     format: 'number' | 'percent';
   }
+  lastModified: string;
 }
 
 // --- Dashboard Modal Context Type ---
@@ -131,7 +140,8 @@ export interface AppContextType {
   activeDashboardId: string | null;
   dashboardCards: ChartCardData[];
   whiteLabelSettings: WhiteLabelSettings;
-  addDataSource: (newSource: Omit<DataSource, 'id'>) => void;
+  appSettings: AppSettings;
+  addDataSource: (newSource: Omit<DataSource, 'id' | 'lastModified'>) => void;
   updateDataSource: (updatedSource: DataSource) => void;
   removeDataSource: (id: string) => void;
   addDashboard: (name: string) => void;
@@ -141,13 +151,13 @@ export interface AppContextType {
   updateDashboardName: (id: string, newName: string) => void;
   updateActiveDashboardSettings: (settings: DashboardFormattingSettings) => void;
   updateActiveDashboardScriptLibrary: (script: string) => void;
-  updateWhiteLabelSettings: (settings: WhiteLabelSettings) => void;
-  addCard: (newCard: Omit<ChartCardData, 'id'>) => void;
+  updateWhiteLabelSettings: (settings: Omit<WhiteLabelSettings, 'lastModified'>) => void;
+  addCard: (newCard: Omit<ChartCardData, 'id' | 'lastModified'>) => void;
   cloneCard: (cardId: string) => void;
   updateCard: (updatedCard: ChartCardData) => void;
   removeCard: (id: string) => void;
   reorderDashboardCards: (dashboardId: string, orderedCardIds: string[]) => void;
-  addVariable: (newVariable: Omit<Variable, 'id'>) => void;
+  addVariable: (newVariable: Omit<Variable, 'id' | 'lastModified'>) => void;
   updateVariable: (updatedVariable: Variable) => void;
   removeVariable: (id: string) => void;
   updateAllVariables: (dashboardId: string, allVariables: Variable[]) => void;
@@ -157,8 +167,7 @@ export interface AppContextType {
   importDataSources: (data: ExportData, selectedDataSourcesFromFile: DataSource[]) => void;
   isLoading: boolean;
   settingsSaveStatus: SaveStatus;
-  syncDashboards: () => Promise<void>;
-  syncSettings: () => Promise<void>;
+  syncAllChanges: () => Promise<void>;
   autoSaveEnabled: boolean;
   toggleAutoSave: () => void;
   formattingVersion: number;
@@ -182,6 +191,7 @@ export interface DataSource {
   name: string;
   type: DatabaseType;
   connectionString: string;
+  lastModified: string;
 }
 
 export interface QueryResult {
@@ -204,4 +214,22 @@ export interface ExportData {
     cards?: ChartCardData[];
     variables?: Variable[];
     dataSources?: DataSource[];
+}
+
+// --- Sync Types ---
+export type DeletionEntityType = 'dashboard' | 'card' | 'variable' | 'dataSource';
+export interface DeletionTombstone {
+    id: string;
+    type: DeletionEntityType;
+    deletedAt: string;
+    parentId?: string; // e.g., dashboardId for a card or variable
+}
+
+export interface AllConfigs {
+    dashboards: Dashboard[];
+    cards: ChartCardData[];
+    variables: Variable[];
+    dataSources: DataSource[];
+    whiteLabelSettings: WhiteLabelSettings | null;
+    appSettings: AppSettings | null;
 }

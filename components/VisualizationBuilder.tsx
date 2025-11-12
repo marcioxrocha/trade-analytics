@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChartCardData, ChartType, QueryResult, ColumnDataType, QueryLanguage, TableConfig, AggregationType } from '../types';
 import Icon from './Icon';
@@ -155,6 +156,7 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
 
     const isMulti = vizType === ChartType.MULTI_LINE;
 
+    // FIX: Add lastModified property to satisfy the ChartCardData type.
     return {
       id: 'preview-card',
       dashboardId: activeDashboardId,
@@ -173,6 +175,7 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
       gridSpan: vizGridSpan,
       gridRowSpan: vizGridRowSpan,
       kpiConfig: vizType === ChartType.KPI ? { format: vizKpiFormat } : undefined,
+      lastModified: new Date().toISOString(),
     };
   }, [result, vizTitle, vizDescription, vizType, vizDataKey, vizDataKeys, vizCategoryKey, currentQuery, currentDataSourceId, vizGridSpan, vizGridRowSpan, vizKpiFormat, activeDashboardId, columnTypes, currentQueryLanguage, isSpacer, vizTableConfig]);
 
@@ -214,6 +217,7 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
 
   const handleSaveClick = () => {
     const isMulti = vizType === ChartType.MULTI_LINE;
+    // FIX: Add lastModified property to satisfy the Omit<ChartCardData, 'id' | 'dashboardId'> type.
     const cardConfig: Omit<ChartCardData, 'id' | 'dashboardId'> = {
       title: vizTitle,
       description: isSpacer ? t('chartCard.spacerDescription') : (vizDescription.trim() || undefined),
@@ -229,6 +233,7 @@ const VisualizationBuilder: React.FC<VisualizationBuilderProps> = ({
       gridSpan: vizGridSpan,
       gridRowSpan: vizGridRowSpan,
       kpiConfig: vizType === ChartType.KPI ? { format: vizKpiFormat } : undefined,
+      lastModified: new Date().toISOString(),
     };
     onSave(cardConfig);
   };

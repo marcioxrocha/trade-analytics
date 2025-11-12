@@ -21,12 +21,13 @@ const VariablesManager: React.FC<VariablesManagerProps> = ({ dashboardId, variab
     const varValueRef = useRef<HTMLInputElement>(null);
 
     const fixedVariables = useMemo(() => {
+        const now = new Date().toISOString();
         const vars: Variable[] = [];
         if (department) {
-            vars.push({ id: 'fixed-dept', dashboardId, name: 'department', value: department });
+            vars.push({ id: 'fixed-dept', dashboardId, name: 'department', value: department, lastModified: now });
         }
         if (owner) {
-            vars.push({ id: 'fixed-owner', dashboardId, name: 'owner', value: owner });
+            vars.push({ id: 'fixed-owner', dashboardId, name: 'owner', value: owner, lastModified: now });
         }
         return vars;
     }, [department, owner, dashboardId]);
@@ -49,6 +50,7 @@ const VariablesManager: React.FC<VariablesManagerProps> = ({ dashboardId, variab
     const handleVariableSubmit = () => {
         const name = varNameRef.current?.value.trim();
         const value = varValueRef.current?.value.trim();
+        const now = new Date().toISOString();
 
         if (!name) return;
         
@@ -58,12 +60,12 @@ const VariablesManager: React.FC<VariablesManagerProps> = ({ dashboardId, variab
 
         if (editingVariable) {
              const updatedVars = variables.map(v => 
-                v.id === editingVariable.id ? { ...editingVariable, name, value: finalValue, isExpression, options: currentOptions.length > 0 ? currentOptions : undefined } : v
+                v.id === editingVariable.id ? { ...editingVariable, name, value: finalValue, isExpression, options: currentOptions.length > 0 ? currentOptions : undefined, lastModified: now } : v
             );
             onVariablesChange(updatedVars);
             setEditingVariable(null);
         } else {
-            const newVar: Variable = { id: crypto.randomUUID(), dashboardId, name, value: finalValue, isExpression, showOnDashboard: true, options: currentOptions.length > 0 ? currentOptions : undefined };
+            const newVar: Variable = { id: crypto.randomUUID(), dashboardId, name, value: finalValue, isExpression, showOnDashboard: true, options: currentOptions.length > 0 ? currentOptions : undefined, lastModified: now };
             onVariablesChange([...variables, newVar]);
             if(varNameRef.current) varNameRef.current.value = '';
             if(varValueRef.current) varValueRef.current.value = '';
@@ -85,7 +87,8 @@ const VariablesManager: React.FC<VariablesManagerProps> = ({ dashboardId, variab
     }
     
     const handleToggleShowOnDashboard = (id: string, isChecked: boolean) => {
-        onVariablesChange(variables.map(v => v.id === id ? { ...v, showOnDashboard: isChecked } : v));
+        const now = new Date().toISOString();
+        onVariablesChange(variables.map(v => v.id === id ? { ...v, showOnDashboard: isChecked, lastModified: now } : v));
     };
 
     const handleAddOption = () => {

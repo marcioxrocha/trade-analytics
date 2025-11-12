@@ -71,10 +71,12 @@ const SqlEditorView: React.FC<SqlEditorViewProps> = ({ editingCardId, onFinishEd
         const userVars = variables.filter(v => v.dashboardId === activeDashboardId);
         const fixedVars: Variable[] = [];
         if (department && activeDashboardId) {
-            fixedVars.push({ id: 'fixed-department', dashboardId: activeDashboardId, name: 'department', value: department });
+            // FIX: Add lastModified property to satisfy the Variable type.
+            fixedVars.push({ id: 'fixed-department', dashboardId: activeDashboardId, name: 'department', value: department, lastModified: new Date().toISOString() });
         }
         if (owner && activeDashboardId) {
-            fixedVars.push({ id: 'fixed-owner', dashboardId: activeDashboardId, name: 'owner', value: owner });
+            // FIX: Add lastModified property to satisfy the Variable type.
+            fixedVars.push({ id: 'fixed-owner', dashboardId: activeDashboardId, name: 'owner', value: owner, lastModified: new Date().toISOString() });
         }
         return [...userVars, ...fixedVars];
     }, [variables, activeDashboardId, department, owner]);
@@ -301,6 +303,19 @@ const SqlEditorView: React.FC<SqlEditorViewProps> = ({ editingCardId, onFinishEd
                 <div className="md:col-span-3">
                     <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">{t('queryEditor.title')}</h1>
                     
+                    { (department || owner) && (
+                        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-200">
+                            <p>
+                                <span className="font-bold">{t('queryEditor.dataContext')}:</span> {t('queryEditor.dataContextDesc', {
+                                    context: [
+                                        department && `department: '${department}'`,
+                                        owner && `owner: '${owner}'`
+                                    ].filter(Boolean).join(', ')
+                                })}
+                            </p>
+                        </div>
+                    )}
+
                     <QueryEditor
                         query={query}
                         onQueryChange={setQuery}

@@ -13,7 +13,7 @@ const ScriptLibraryView: React.FC = () => {
         dashboards,
         activeDashboardId,
         updateActiveDashboardScriptLibrary,
-        syncDashboards,
+        syncAllChanges,
         apiConfig,
         hasUnsyncedChanges,
     } = useAppContext();
@@ -29,7 +29,7 @@ const ScriptLibraryView: React.FC = () => {
         if (activeDashboard) {
             setScriptContent(activeDashboard.scriptLibrary || '');
         }
-    }, [activeDashboardId]);
+    }, [activeDashboardId, activeDashboard]);
 
     // This effect is responsible for saving the local state (scriptContent) back to the global context.
     // It uses a debounce to avoid excessive updates while the user is typing.
@@ -48,7 +48,7 @@ const ScriptLibraryView: React.FC = () => {
 
     const handleConfirmSync = async () => {
         try {
-            await syncDashboards();
+            await syncAllChanges();
             showModal({
                 title: t('modal.saveSuccessTitle'),
                 content: <p>{t('modal.saveSuccess')}</p>,
