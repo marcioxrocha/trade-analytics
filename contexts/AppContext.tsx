@@ -121,77 +121,119 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     try {
         const serverState = await getAllConfigs(apiConfig, context);
         const syncPromises: Promise<any>[] = [];
+        
+        const finalState: AllConfigs = {
+            dashboards: [], cards: [], variables: [], dataSources: [],
+            whiteLabelSettings: null, appSettings: null,
+        };
 
-        // --- MERGE MONOLITHIC SETTINGS (DataSources, WhiteLabel, AppSettings) ---
-        const mergeMonolithicArray = <T extends { id: string; lastModified: string }>(local: T[], server: T[], type: DeletionEntityType, key: string) => {
-            const serverMap = new Map(server.map(item => [item.id, item]));
+        const safeDate = (isoString?: string) => new Date(isoString || 0);
+
+        // --- Merge Logic ---
+        const mergeArray = <T extends { id: string; lastModified: string }>(local: T[], server: T[] | null, type: DeletionEntityType, parentId?: string): T[] => {
+            const serverMap = new Map((server || []).map(item => [item.id, item]));
             const mergedMap = new Map(serverMap);
-            local.forEach(localItem => {
+
+            (local || []).forEach(localItem => {
                 const serverItem = serverMap.get(localItem.id);
-                if (!serverItem || new Date(localItem.lastModified) > new Date(serverItem.lastModified)) {
+                if (!serverItem || safeDate(localItem.lastModified) > safeDate(serverItem.lastModified)) {
                     mergedMap.set(localItem.id, localItem);
                 }
             });
-            deletionTombstones.filter(t => t.type === type).forEach(tombstone => mergedMap.delete(tombstone.id));
-            const finalArray = Array.from(mergedMap.values());
-            if (JSON.stringify(finalArray) !== JSON.stringify(server)) {
-                syncPromises.push(setConfig(key, finalArray, apiConfig, context));
-            }
+            
+            const relevantTombstones = deletionTombstones.filter(t => t.type === type && (!parentId || t.parentId === parentId));
+            relevantTombstones.forEach(tombstone => mergedMap.delete(tombstone.id));
+            
+            return Array.from(mergedMap.values());
         };
 
-        const mergeMonolithicObject = <T extends { lastModified: string }>(local: T | null, server: T | null, key: string) => {
-            if (local && (!server || new Date(local.lastModified) > new Date(server.lastModified))) {
-                syncPromises.push(setConfig(key, local, apiConfig, context));
+        const mergeObject = <T extends { lastModified: string }>(local: T | null, server: T | null): T | null => {
+            if (local && (!server || safeDate(local.lastModified) > safeDate(server.lastModified))) {
+                return local;
             }
+            return server || local;
         };
 
-        mergeMonolithicArray(dataSources, serverState.dataSources, 'dataSource', DATA_SOURCES_KEY);
-        mergeMonolithicObject(whiteLabelSettings, serverState.whiteLabelSettings, WHITE_LABEL_KEY);
-        mergeMonolithicObject(appSettings, serverState.appSettings, APP_SETTINGS_KEY);
+        // --- MERGE ALL DATA TYPES ---
+        finalState.dataSources = mergeArray(dataSources, serverState.dataSources, 'dataSource');
+        finalState.whiteLabelSettings = mergeObject(whiteLabelSettings, serverState.whiteLabelSettings);
+        finalState.appSettings = mergeObject(appSettings, serverState.appSettings);
+        finalState.dashboards = mergeArray(dashboards, serverState.dashboards, 'dashboard');
+        
+        const allCards: ChartCardData[] = [];
+        const allVariables: Variable[] = [];
 
-        // --- MERGE GRANULAR ITEMS (Dashboards and their children) ---
-        const serverDashboardsMap = new Map(serverState.dashboards.map(d => [d.id, d]));
-        const localDashboardsMap = new Map(dashboards.map(d => [d.id, d]));
-        const allDashboardIds:any = new Set([...serverDashboardsMap.keys(), ...localDashboardsMap.keys()]);
+        finalState.dashboards.forEach(dash => {
+            const localCards = dashboardCards.filter(c => c.dashboardId === dash.id);
+            const serverCards = (serverState.cards || []).filter(c => c.dashboardId === dash.id);
+            const mergedCards = mergeArray(localCards, serverCards, 'card', dash.id);
+            allCards.push(...mergedCards);
 
-        const groupById = <T extends { dashboardId: string }>(items: T[]) => items.reduce((acc, item) => {
-            (acc[item.dashboardId] = acc[item.dashboardId] || []).push(item);
-            return acc;
-        }, {} as Record<string, T[]>);
+            const localVars = variables.filter(v => v.dashboardId === dash.id);
+            const serverVars = (serverState.variables || []).filter(v => v.dashboardId === dash.id);
+            const mergedVars = mergeArray(localVars, serverVars, 'variable', dash.id);
+            allVariables.push(...mergedVars);
+        });
+        finalState.cards = allCards;
+        finalState.variables = allVariables;
 
-        const serverCardsByDash = groupById(serverState.cards);
-        const localCardsByDash:any = groupById(dashboardCards);
-        const serverVarsByDash = groupById(serverState.variables);
-        const localVarsByDash:any = groupById(variables);
-
-        for (const dashId of allDashboardIds) {
-            const localDash:any = localDashboardsMap.get(dashId);
-            const serverDash = serverDashboardsMap.get(dashId);
-            if (localDash && (!serverDash || new Date(localDash.lastModified) > new Date(serverDash.lastModified))) {
-                syncPromises.push(setConfig(`${DASHBOARD_CONFIG_PREFIX}${dashId}`, localDash, apiConfig, context));
-            }
-            mergeMonolithicArray(localCardsByDash[dashId] || [], serverCardsByDash[dashId] || [], 'card', `${DASHBOARD_CARDS_PREFIX}${dashId}`);
-            mergeMonolithicArray(localVarsByDash[dashId] || [], serverVarsByDash[dashId] || [], 'variable', `${DASHBOARD_VARIABLES_PREFIX}${dashId}`);
+        // --- PUSH CHANGES TO SERVER ---
+        const sortById = (a: {id:string}, b: {id:string}) => a.id.localeCompare(b.id);
+        if (JSON.stringify(finalState.dataSources.sort(sortById)) !== JSON.stringify((serverState.dataSources || []).sort(sortById))) {
+            syncPromises.push(setConfig(DATA_SOURCES_KEY, finalState.dataSources, apiConfig, context));
+        }
+        if (JSON.stringify(finalState.whiteLabelSettings) !== JSON.stringify(serverState.whiteLabelSettings)) {
+            syncPromises.push(setConfig(WHITE_LABEL_KEY, finalState.whiteLabelSettings, apiConfig, context));
+        }
+        if (JSON.stringify(finalState.appSettings) !== JSON.stringify(serverState.appSettings)) {
+            syncPromises.push(setConfig(APP_SETTINGS_KEY, finalState.appSettings, apiConfig, context));
         }
         
-        // --- PROCESS DELETIONS FOR DASHBOARDS ---
-        deletionTombstones.filter(t => t.type === 'dashboard').forEach(tombstone => {
-            syncPromises.push(deleteConfig(`${DASHBOARD_CONFIG_PREFIX}${tombstone.id}`, apiConfig, context));
-            syncPromises.push(deleteConfig(`${DASHBOARD_CARDS_PREFIX}${tombstone.id}`, apiConfig, context));
-            syncPromises.push(deleteConfig(`${DASHBOARD_VARIABLES_PREFIX}${tombstone.id}`, apiConfig, context));
+        const serverDashboardsMap = new Map((serverState.dashboards || []).map(d => [d.id, d]));
+        const finalDashboardsMap = new Map(finalState.dashboards.map(d => [d.id, d]));
+        
+        // Add/Update dashboards
+        finalState.dashboards.forEach(dash => {
+            const serverDash = serverDashboardsMap.get(dash.id);
+            if (!serverDash || JSON.stringify(dash) !== JSON.stringify(serverDash)) {
+                syncPromises.push(setConfig(`${DASHBOARD_CONFIG_PREFIX}${dash.id}`, dash, apiConfig, context));
+            }
+        });
+        
+        // Delete dashboards that are in server but not in final state
+        serverState.dashboards?.forEach(serverDash => {
+            if (!finalDashboardsMap.has(serverDash.id)) {
+                syncPromises.push(deleteConfig(`${DASHBOARD_CONFIG_PREFIX}${serverDash.id}`, apiConfig, context));
+                syncPromises.push(deleteConfig(`${DASHBOARD_CARDS_PREFIX}${serverDash.id}`, apiConfig, context));
+                syncPromises.push(deleteConfig(`${DASHBOARD_VARIABLES_PREFIX}${serverDash.id}`, apiConfig, context));
+            }
         });
 
+        // Sync children (cards/variables) for each final dashboard
+        finalState.dashboards.forEach(dash => {
+            const finalCards = finalState.cards.filter(c => c.dashboardId === dash.id);
+            const serverCards = (serverState.cards || []).filter(c => c.dashboardId === dash.id);
+            if (JSON.stringify(finalCards.sort(sortById)) !== JSON.stringify(serverCards.sort(sortById))) {
+                syncPromises.push(setConfig(`${DASHBOARD_CARDS_PREFIX}${dash.id}`, finalCards, apiConfig, context));
+            }
+
+            const finalVars = finalState.variables.filter(v => v.dashboardId === dash.id);
+            const serverVars = (serverState.variables || []).filter(v => v.dashboardId === dash.id);
+            if (JSON.stringify(finalVars.sort(sortById)) !== JSON.stringify(serverVars.sort(sortById))) {
+                syncPromises.push(setConfig(`${DASHBOARD_VARIABLES_PREFIX}${dash.id}`, finalVars, apiConfig, context));
+            }
+        });
+        
         await Promise.all(syncPromises);
 
-        // --- POST-SYNC CLEANUP ---
-        const finalServerState = await getAllConfigs(apiConfig, context);
+        // --- POST-SYNC CLEANUP & STATE COMMIT ---
         const now = new Date().toISOString();
-        setDataSources(finalServerState.dataSources || []);
-        setWhiteLabelSettings(finalServerState.whiteLabelSettings || { brandColor: DEFAULT_BRAND_COLOR, lastModified: now });
-        setAppSettings(finalServerState.appSettings || { autoSave: false, lastModified: now });
-        setDashboards((finalServerState.dashboards || []).map(d => ({ ...d, saveStatus: 'saved-remote' })));
-        setDashboardCards(finalServerState.cards || []);
-        setVariables(finalServerState.variables || []);
+        setDataSources(finalState.dataSources || []);
+        setWhiteLabelSettings(finalState.whiteLabelSettings || { brandColor: DEFAULT_BRAND_COLOR, lastModified: now });
+        setAppSettings(finalState.appSettings || { autoSave: false, lastModified: now });
+        setDashboards((finalState.dashboards || []).map(d => ({ ...d, saveStatus: 'saved-remote' })));
+        setDashboardCards(finalState.cards || []);
+        setVariables(finalState.variables || []);
         
         setDeletionTombstones([]);
         setLocalTombstones([]);
@@ -205,9 +247,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     }
   }, [dashboards, dashboardCards, variables, dataSources, whiteLabelSettings, appSettings, deletionTombstones, apiConfig, department, owner, t]);
 
-  const syncDashboards = syncAllChanges;
-  const syncSettings = syncAllChanges;
-  
   const addDataSource = useCallback((newSource: Omit<DataSource, 'id' | 'lastModified'>) => {
     const now = new Date().toISOString();
     const newSourceWithId: DataSource = { ...newSource, id: crypto.randomUUID(), lastModified: now };

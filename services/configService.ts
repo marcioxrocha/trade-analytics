@@ -153,6 +153,7 @@ export const getAllConfigs = async (apiConfig: ApiConfig, context?: RequestConte
         whiteLabelSettings: null, appSettings: null
     };
 
+    // 1. Try Supabase first
     const supabase = await createSupabaseClient(apiConfig);
     if (supabase) {
         try {
@@ -165,40 +166,84 @@ export const getAllConfigs = async (apiConfig: ApiConfig, context?: RequestConte
             const { data, error } = await query;
             if (error) throw error;
             
-            if (!data) return emptyState;
-
-            const result: AllConfigs = { ...emptyState };
-            data.forEach(item => {
-                if (item.key.startsWith(DASHBOARD_CONFIG_PREFIX)) result.dashboards.push(item.value);
-                else if (item.key.startsWith(DASHBOARD_CARDS_PREFIX)) result.cards.push(...item.value);
-                else if (item.key.startsWith(DASHBOARD_VARIABLES_PREFIX)) result.variables.push(...item.value);
-                else if (item.key === DATA_SOURCES_KEY) result.dataSources = item.value;
-                else if (item.key === WHITE_LABEL_KEY) result.whiteLabelSettings = item.value;
-                else if (item.key === APP_SETTINGS_KEY) result.appSettings = item.value;
-            });
-            return result;
+            if (data && data.length > 0) {
+                const result: AllConfigs = { ...emptyState };
+                data.forEach(item => {
+                    if (item.key.startsWith(DASHBOARD_CONFIG_PREFIX)) result.dashboards.push(item.value);
+                    else if (item.key.startsWith(DASHBOARD_CARDS_PREFIX)) result.cards.push(...item.value);
+                    else if (item.key.startsWith(DASHBOARD_VARIABLES_PREFIX)) result.variables.push(...item.value);
+                    else if (item.key === DATA_SOURCES_KEY) result.dataSources = item.value;
+                    else if (item.key === WHITE_LABEL_KEY) result.whiteLabelSettings = item.value;
+                    else if (item.key === APP_SETTINGS_KEY) result.appSettings = item.value;
+                });
+                return result;
+            }
         } catch (error) {
-             console.warn(`Supabase getAllConfigs failed, falling back to local. Error:`, error);
+             console.warn(`Supabase getAllConfigs failed, falling back. Error:`, error);
         }
     }
     
-    // Fallback to local storage if API fails or isn't configured
-    console.log("getAllConfigs falling back to local storage.");
-    const localDashboards = getLocalItem<any[]>(DASHBOARD_CONFIG_PREFIX)?.flat() || [];
-    const localCards = getLocalItem<any[]>(DASHBOARD_CARDS_PREFIX)?.flat() || [];
-    const localVariables = getLocalItem<any[]>(DASHBOARD_VARIABLES_PREFIX)?.flat() || [];
-    const localDataSources = getLocalItem<DataSource[]>(DATA_SOURCES_KEY) || [];
-    const localWhiteLabel = getLocalItem<any>(WHITE_LABEL_KEY);
-    const localAppSettings = getLocalItem<any>(APP_SETTINGS_KEY);
+    // 2. Fallback to custom API
+    if (apiConfig.CONFIG_API_URL) {
+        try {
+            const url = apiConfig.CONFIG_API_URL;
+            const headers: HeadersInit = {};
+            if (apiConfig.TENANT_ID) headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
+            if (apiConfig.API_KEY) headers['api_key'] = apiConfig.API_KEY;
+            if (apiConfig.API_SECRET) headers['api_secret'] = apiConfig.API_SECRET;
+            if (context?.department) headers['X-Department'] = context.department;
+            if (context?.owner) headers['X-Owner'] = context.owner;
+            
+            const response = await fetch(url, { headers });
 
-    return {
-        dashboards: localDashboards,
-        cards: localCards,
-        variables: localVariables,
-        dataSources: localDataSources,
-        whiteLabelSettings: localWhiteLabel,
-        appSettings: localAppSettings,
-    };
+            if (!response.ok) {
+                // If 404, it's not an error, just means no configs exist yet.
+                if (response.status === 404) {
+                    // Fall through to local storage logic
+                } else {
+                    throw new Error(`API returned status ${response.status}`);
+                }
+            } else {
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    const result: AllConfigs = { ...emptyState };
+                    data.forEach(item => {
+                        if (item.key.startsWith(DASHBOARD_CONFIG_PREFIX)) result.dashboards.push(item.value);
+                        else if (item.key.startsWith(DASHBOARD_CARDS_PREFIX)) result.cards.push(...item.value);
+                        else if (item.key.startsWith(DASHBOARD_VARIABLES_PREFIX)) result.variables.push(...item.value);
+                        else if (item.key === DATA_SOURCES_KEY) result.dataSources = item.value;
+                        else if (item.key === WHITE_LABEL_KEY) result.whiteLabelSettings = item.value;
+                        else if (item.key === APP_SETTINGS_KEY) result.appSettings = item.value;
+                    });
+                    return result;
+                } else {
+                     console.warn(`API call to getAllConfigs did not return an array, falling back.`, data);
+                }
+            }
+        } catch (error) {
+             console.warn(`API call to getAllConfigs failed, falling back to localStorage. Error:`, error);
+        }
+    }
+
+    // 3. Fallback to local storage if API fails or isn't configured
+    console.log("getAllConfigs falling back to local storage.");
+    const allKeys = Object.keys(localStorage);
+    const localResult: AllConfigs = { ...emptyState };
+    for (const storageKey of allKeys) {
+        if (storageKey.startsWith(LOCAL_STORAGE_PREFIX)) {
+            const appKey = storageKey.substring(LOCAL_STORAGE_PREFIX.length);
+            const value = getLocalItem<any>(appKey);
+            if (value === null) continue;
+
+            if (appKey.startsWith(DASHBOARD_CONFIG_PREFIX)) localResult.dashboards.push(value);
+            else if (appKey.startsWith(DASHBOARD_CARDS_PREFIX)) localResult.cards.push(...value);
+            else if (appKey.startsWith(DASHBOARD_VARIABLES_PREFIX)) localResult.variables.push(...value);
+            else if (appKey === DATA_SOURCES_KEY) localResult.dataSources = value;
+            else if (appKey === WHITE_LABEL_KEY) localResult.whiteLabelSettings = value;
+            else if (appKey === APP_SETTINGS_KEY) localResult.appSettings = value;
+        }
+    }
+    return localResult;
 };
 
 
@@ -490,7 +535,28 @@ export const deleteConfig = async (key: string, apiConfig: ApiConfig, context?: 
     }
     
     if (apiConfig.CONFIG_API_URL) {
-        // This would require a DELETE method on the backend, which is not assumed.
-        console.warn('deleteConfig with custom API URL is not implemented.');
+        try {
+            const url = `${apiConfig.CONFIG_API_URL}?key=${encodeURIComponent(key)}`;
+            const headers: HeadersInit = {};
+            if (apiConfig.TENANT_ID) headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
+            if (apiConfig.API_KEY) headers['api_key'] = apiConfig.API_KEY;
+            if (apiConfig.API_SECRET) headers['api_secret'] = apiConfig.API_SECRET;
+            if (context?.department) headers['X-Department'] = context.department;
+            if (context?.owner) headers['X-Owner'] = context.owner;
+
+            const response = await fetch(url, {
+                method: 'DELETE',
+                headers,
+            });
+            // A 404 is acceptable, it means the resource was already deleted.
+            if (!response.ok && response.status !== 404) {
+                const errorBody = await response.text();
+                throw new Error(`API returned status ${response.status}: ${errorBody}`);
+            }
+            return;
+        } catch (error) {
+            console.error(`API call to deleteConfig failed. Error:`, error);
+            throw error;
+        }
     }
 };
