@@ -27,7 +27,7 @@
 
 import { QueryRequest, QueryResult, RequestContext } from '../types';
 import { IDatabaseDriver } from './IDatabaseDriver';
-import { ApiConfig } from '../services/apiConfig';
+import { ApiConfig } from './../types';
 
 export class RedisDriver implements IDatabaseDriver {
   /**

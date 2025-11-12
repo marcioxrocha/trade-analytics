@@ -42,7 +42,7 @@
 
 import { QueryRequest, QueryResult, RequestContext } from '../types';
 import { IDatabaseDriver } from './IDatabaseDriver';
-import { ApiConfig } from '../services/apiConfig';
+import { ApiConfig } from './../types';
 
 export class MongoDbDriver implements IDatabaseDriver {
   async executeQuery(request: QueryRequest, apiConfig: ApiConfig, context?: RequestContext): Promise<QueryResult> {

@@ -1,6 +1,6 @@
 import { IDatabaseDriver } from './IDatabaseDriver';
 import { QueryRequest, QueryResult, RequestContext } from '../types';
-import { ApiConfig } from '../services/apiConfig';
+import { ApiConfig } from './../types';
 
 export class UnsupportedDriver implements IDatabaseDriver {
   private type: string;

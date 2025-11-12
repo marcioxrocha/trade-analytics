@@ -1,7 +1,7 @@
 import { ChartCardData, DataSource, Variable, QueryResult, DashboardFormattingSettings } from '../types';
 import { getDriver } from '../drivers/driverFactory';
 import { removeSqlLimits, substituteVariablesInQuery } from './queryService';
-import { ApiConfig } from './apiConfig';
+import { ApiConfig } from './../types';
 import { formatValue } from './formattingService';
 
 interface ExportOptions {

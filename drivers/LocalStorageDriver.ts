@@ -1,6 +1,6 @@
 import { IDatabaseDriver } from './IDatabaseDriver';
 import { QueryRequest, QueryResult, RequestContext } from '../types';
-import { ApiConfig } from '../services/apiConfig';
+import { ApiConfig } from './../types';
 
 // --- LocalStorage Mock Database (for demo purposes) ---
 const MOCK_DB_KEY = 'analytics_builder_mock_db';
