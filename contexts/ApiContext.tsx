@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import { getApiConfig } from '../services/apiConfig';
-import { ApiConfig } from '../services/apiConfig';
+import { ApiConfig } from '../types';
 
 /**
  * This context is designed to provide a centralized API configuration

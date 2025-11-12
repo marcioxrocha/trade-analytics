@@ -97,8 +97,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({
             console.log(`Found ${legacyDashboards.length} legacy dashboards. They will be migrated on the next sync.`);
             // Mark all legacy dashboards as unsaved to trigger migration on the next sync.
             loadedDashboards = legacyDashboards.map(d => ({ ...d, saveStatus: 'unsaved' }));
-            allCards = (legacyCards || []).filter(safeFilter);
-            allVariables = (legacyVariables || []).filter(safeFilter);
+            allCards = (Array.isArray(legacyCards)?legacyCards:[legacyCards]).filter(x => x).filter(safeFilter);
+            allVariables = (Array.isArray(legacyVariables)?legacyVariables:[legacyVariables]).filter(x => x).filter(safeFilter);
         }
       }
       

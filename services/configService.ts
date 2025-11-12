@@ -253,7 +253,40 @@ export const getConfigsByPrefix = async <T>(prefix: string, apiConfig: ApiConfig
     }
 
     // 2. Custom API is not supported for prefix search in this implementation.
-    
+    if (apiConfig.CONFIG_API_URL) {
+        try {
+            const url = `${apiConfig.CONFIG_API_URL}?prefix=${encodeURIComponent(prefix)}`;
+            const headers: HeadersInit = {};
+            if (apiConfig.TENANT_ID) {
+                headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
+            }
+            if (apiConfig.API_KEY) {
+                headers['api_key'] = apiConfig.API_KEY;
+            }
+            if (apiConfig.API_SECRET) {
+                headers['api_secret'] = apiConfig.API_SECRET;
+            }
+            if (context?.department) {
+                headers['X-Department'] = context.department;
+            }
+            if (context?.owner) {
+                headers['X-Owner'] = context.owner;
+            }
+            
+            const response = await fetch(url, { headers });
+
+            if (!response.ok) {
+                if(response.status === 404) return null; // 404 is a valid "not found" response.
+                throw new Error(`API returned status ${response.status}`);
+            }
+            const res = await response.json();
+
+            return res ? res.map(item => item.value as T) : [];
+        } catch (error) {
+            console.warn(`API call to getConfig failed, falling back to localStorage. Error:`, error);
+        }
+    }    
+
     // 3. Fallback to localStorage.
     const results: T[] = [];
     for (let i = 0; i < localStorage.length; i++) {

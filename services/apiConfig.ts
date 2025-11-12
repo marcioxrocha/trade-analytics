@@ -1,6 +1,14 @@
 import { environments } from './environment';
 import { ApiConfig } from '../types';
 
+export const setVars = (env:any) => {
+    if(env && environments){
+        for(const prop in env) {
+            environments[prop] = env[prop];
+        }
+    }  
+}
+
 const getEnvVar = (baseName: string, instanceKey?: string): string => {
     // In a browser environment, process.env is typically handled by a bundler.
     // We assume the environment provides a `process.env` object that allows dynamic key access.
