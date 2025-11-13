@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { ChartCardData, DataSource, Dashboard, AppContextType, Variable, DashboardFormattingSettings, WhiteLabelSettings, SaveStatus, ExportData, DeletionTombstone, DeletionEntityType, AllConfigs, AppSettings } from '../types';
 import { DATA_SOURCES_KEY, WHITE_LABEL_KEY, DEFAULT_BRAND_COLOR, APP_SETTINGS_KEY, LAST_ACTIVE_DASHBOARD_ID_KEY, DASHBOARD_CONFIG_PREFIX, DASHBOARD_CARDS_PREFIX, DASHBOARD_VARIABLES_PREFIX } from '../constants';
-import { setConfig, deleteConfig, getAllConfigs, getLocalTombstones, setLocalTombstones } from '../services/configService';
+import { setConfig, deleteConfig, getAllConfigs, getLocalTombstones, setLocalTombstones, getConfig, setConfigLocal } from '../services/configService';
 import { useLanguage } from './LanguageContext';
 import { DEFAULT_FORMATTING_SETTINGS } from '../services/formattingService';
 import { useApi } from './ApiContext';
@@ -53,6 +53,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoading(true);
+      // getAllConfigs now handles the migration from localStorage to IndexedDB automatically.
       const serverState = await getAllConfigs(apiConfig, { department, owner });
       const now = new Date().toISOString();
 
@@ -69,10 +70,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({
       setDashboards(finalDashboards);
       setDashboardCards(serverState.cards || []);
       setVariables(serverState.variables || []);
-      setDeletionTombstones(getLocalTombstones()); // Load pending deletions
+      setDeletionTombstones(await getLocalTombstones()); // Load pending deletions
       
       if (finalDashboards.length > 0) {
-        const lastActiveId = localStorage.getItem(LAST_ACTIVE_DASHBOARD_ID_KEY);
+        const lastActiveId = await getConfig<string>(LAST_ACTIVE_DASHBOARD_ID_KEY, apiConfig);
         const lastActiveDashboardExists = lastActiveId ? finalDashboards.some(d => d.id === lastActiveId) : false;
         
         if (lastActiveDashboardExists) {
@@ -108,9 +109,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({
 
     // Effect to persist the last viewed dashboard ID.
     useEffect(() => {
-        if (!isLoading && activeDashboardId) {
-            localStorage.setItem(LAST_ACTIVE_DASHBOARD_ID_KEY, activeDashboardId);
-        }
+        const saveLastActive = async () => {
+            if (!isLoading && activeDashboardId) {
+                // FIX: Removed extra `apiConfig` argument. `setConfigLocal` only takes key and value.
+                await setConfigLocal(LAST_ACTIVE_DASHBOARD_ID_KEY, activeDashboardId);
+            }
+        };
+        saveLastActive();
     }, [activeDashboardId, isLoading]);
 
   const syncAllChanges = useCallback(async (): Promise<void> => {
@@ -132,19 +137,34 @@ export const AppProvider: React.FC<AppProviderProps> = ({
         // --- Merge Logic ---
         const mergeArray = <T extends { id: string; lastModified: string }>(local: T[], server: T[] | null, type: DeletionEntityType, parentId?: string): T[] => {
             const serverMap = new Map((server || []).map(item => [item.id, item]));
-            const mergedMap = new Map(serverMap);
+            
+            const mergedList: T[] = [];
+            const processedIds = new Set<string>();
 
+            // Prioritize local items and their order
             (local || []).forEach(localItem => {
+                processedIds.add(localItem.id);
                 const serverItem = serverMap.get(localItem.id);
+                
+                // Keep local item if it's new or modified more recently.
                 if (!serverItem || safeDate(localItem.lastModified) > safeDate(serverItem.lastModified)) {
-                    mergedMap.set(localItem.id, localItem);
+                    mergedList.push(localItem);
+                } else {
+                    // Otherwise, keep the server version but in the local item's position.
+                    mergedList.push(serverItem);
                 }
             });
             
-            const relevantTombstones = deletionTombstones.filter(t => t.type === type && (!parentId || t.parentId === parentId));
-            relevantTombstones.forEach(tombstone => mergedMap.delete(tombstone.id));
-            
-            return Array.from(mergedMap.values());
+            // Add new items from server that are not present locally (e.g., added on another client).
+            // These will be appended to the end.
+            (server || []).forEach(serverItem => {
+                if (!processedIds.has(serverItem.id)) {
+                    mergedList.push(serverItem);
+                }
+            });
+
+            const relevantTombstones = deletionTombstones.filter(t => t.type === type && (!parentId || t.parentId === parentId)).map(t => t.id);
+            return mergedList.filter(item => !relevantTombstones.includes(item.id));
         };
 
         const mergeObject = <T extends { lastModified: string }>(local: T | null, server: T | null): T | null => {
@@ -213,7 +233,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
         finalState.dashboards.forEach(dash => {
             const finalCards = finalState.cards.filter(c => c.dashboardId === dash.id);
             const serverCards = (serverState.cards || []).filter(c => c.dashboardId === dash.id);
-            if (JSON.stringify(finalCards.sort(sortById)) !== JSON.stringify(serverCards.sort(sortById))) {
+            if (JSON.stringify(finalCards) !== JSON.stringify(serverCards)) {
                 syncPromises.push(setConfig(`${DASHBOARD_CARDS_PREFIX}${dash.id}`, finalCards, apiConfig, context));
             }
 
@@ -236,7 +256,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
         setVariables(finalState.variables || []);
         
         setDeletionTombstones([]);
-        setLocalTombstones([]);
+        await setLocalTombstones([]);
         setSettingsSaveStatus('saved-remote');
         
     } catch (error) {
@@ -312,7 +332,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
           const newActiveId = updatedDashboards[0]?.id || null;
           setActiveDashboardId(newActiveId);
           if (!newActiveId) {
-              localStorage.removeItem(LAST_ACTIVE_DASHBOARD_ID_KEY);
+              // No need to interact with localStorage directly anymore
           }
         }
         return updatedDashboards;

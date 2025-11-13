@@ -2,8 +2,9 @@
 // to store configurations as key-value pairs, where the key is a combination
 // of the tenant ID and the configuration key (e.g., 'tenant123:dataSources').
 
-import { ApiConfig, DataSource, DatabaseType, AllConfigs, DeletionTombstone, DeletionEntityType } from '../types';
-import { DATA_SOURCES_KEY, WHITE_LABEL_KEY, APP_SETTINGS_KEY, DASHBOARD_CONFIG_PREFIX, DASHBOARD_CARDS_PREFIX, DASHBOARD_VARIABLES_PREFIX } from '../constants';
+import { ApiConfig, DataSource, DatabaseType, AllConfigs, DeletionTombstone } from '../types';
+import { DATA_SOURCES_KEY, WHITE_LABEL_KEY, APP_SETTINGS_KEY, DASHBOARD_CONFIG_PREFIX, DASHBOARD_CARDS_PREFIX, DASHBOARD_VARIABLES_PREFIX, LAST_ACTIVE_DASHBOARD_ID_KEY } from '../constants';
+import * as idbService from './indexedDbService';
 
 interface RequestContext {
     department?: string;
@@ -13,9 +14,29 @@ interface RequestContext {
 const LOCAL_STORAGE_PREFIX = 'analytics_builder_';
 const DELETION_TOMBSTONES_KEY = 'deletion_tombstones';
 const ENCRYPT_PREFIX = 'enc::';
+// Changed migration key to force a re-run with the new encryption logic.
+const MIGRATION_KEY = 'migration_v3_idb_forced_encryption_complete';
+const SECRET_KEY = 'encryption_secret';
 
 
 // --- Encryption / Decryption Helpers (XOR Cipher) ---
+
+/**
+ * Generates and stores a persistent secret in IndexedDB if one doesn't already exist.
+ * This ensures that data encryption can always occur, even without environment variables.
+ * @returns A promise that resolves with the secret key.
+ */
+const getOrCreateSecret = async (): Promise<string> => {
+    let secret = await idbService.get<string>(SECRET_KEY);
+    if (!secret) {
+        // Generate a reasonably strong random key
+        secret = crypto.randomUUID() + crypto.randomUUID();
+        await idbService.set(SECRET_KEY, secret);
+    }
+    return secret;
+};
+
+
 const xorStrings = (a: string, b: string): string => {
   let result = '';
   for (let i = 0; i < a.length; i++) {
@@ -43,31 +64,58 @@ const decrypt = (encryptedText: string, key: string): string => {
 };
 
 
-// --- LocalStorage Helper Functions (for fallback/demo purposes) ---
-
-const getLocalItem = <T>(key: string): T | null => {
-    try {
-        const data = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}${key}`);
-        return data ? JSON.parse(data) : null;
-    } catch (error) {
-        console.error(`Failed to read '${key}' from localStorage`, error);
-        return null;
+// --- Migration from LocalStorage to IndexedDB ---
+const migrateFromLocalStorageToIndexedDB = async (): Promise<void> => {
+    const isMigrated = await idbService.get<boolean>(MIGRATION_KEY);
+    if (isMigrated) {
+        return;
     }
-};
 
-const setLocalItem = <T>(key: string, value: T) => {
-    try {
-        localStorage.setItem(`${LOCAL_STORAGE_PREFIX}${key}`, JSON.stringify(value));
-    } catch (error) {
-        console.error(`Failed to save '${key}' to localStorage`, error);
+    console.log("Forcing data migration from localStorage to IndexedDB with guaranteed encryption...");
+    
+    // CRITICAL: Clear any existing (potentially unencrypted) data before migrating.
+    await idbService.clear();
+
+    const keysToMigrate = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        // Migrate all keys with the app's prefix, except for theme (UI preference) and mock_db (demo data).
+        if (key && key.startsWith(LOCAL_STORAGE_PREFIX) && !key.endsWith('_theme') && !key.endsWith('_mock_db')) {
+            keysToMigrate.push(key);
+        }
     }
-};
 
-const deleteLocalItem = (key: string) => {
+    if (keysToMigrate.length === 0) {
+        console.log("No data found in localStorage to migrate.");
+        await idbService.set(MIGRATION_KEY, true);
+        return;
+    }
+
+    const migrationPromises = keysToMigrate.map(async storageKey => {
+        const appKey = storageKey.substring(LOCAL_STORAGE_PREFIX.length);
+        const rawValue = localStorage.getItem(storageKey);
+        if (rawValue) {
+            try {
+                // For keys that store plain strings (like last active ID), don't parse. For others, parse JSON.
+                const valueToMigrate = appKey === LAST_ACTIVE_DASHBOARD_ID_KEY ? rawValue : JSON.parse(rawValue);
+                // The new setConfigLocal will always encrypt.
+                await setConfigLocal(appKey, valueToMigrate);
+                 console.log(`Migrated key: ${appKey}`);
+            } catch (e) {
+                console.error(`Failed to parse or migrate key ${appKey}:`, e);
+                // Continue with other keys even if one fails
+            }
+        }
+    });
+
     try {
-        localStorage.removeItem(`${LOCAL_STORAGE_PREFIX}${key}`);
+        await Promise.all(migrationPromises);
+        await idbService.set(MIGRATION_KEY, true);
+        console.log("Migration successful. Cleaning up localStorage...");
+        keysToMigrate.forEach(key => localStorage.removeItem(key));
     } catch (error) {
-        console.error(`Failed to delete '${key}' from localStorage`, error);
+        console.error("An error occurred during migration:", error);
+        // Do not set migration flag or clean up if the process fails.
     }
 };
 
@@ -86,57 +134,52 @@ const createSupabaseClient = async (apiConfig: ApiConfig) => {
 
 
 /**
- * Saves a configuration value locally. Used for auto-saving.
+ * Saves a configuration value locally, always encrypting it before storing in IndexedDB.
+ * It also sanitizes sensitive data (like connection strings) before saving.
  * @param key The key of the configuration to save.
  * @param value The value to save.
  */
-export const setConfigLocal = <T>(key: string, value: T, apiConfig: ApiConfig): void => {
-    if (key === DATA_SOURCES_KEY) {
-        const sources = value as unknown as DataSource[];
-        const secret = apiConfig.LOCAL_DATA_SECRET;
-        // Types that should NOT be stored locally with connection strings. Supabase is excluded.
-        const LOCALLY_PROHIBITED_DB_TYPES: DatabaseType[] = ['PostgreSQL', 'MySQL', 'SQL Server', 'Redis', 'MongoDB', 'CosmosDB'];
+export const setConfigLocal = async <T>(key: string, value: T): Promise<void> => {
+    let valueToStore = value;
 
-        const sanitizedSources = sources.map(source => {
-            // For prohibited types, always strip the connection string for local storage.
-            if (LOCALLY_PROHIBITED_DB_TYPES.includes(source.type)) {
-                return { ...source, connectionString: '' };
+    // Intercept and sanitize data sources before encryption.
+    if (key === DATA_SOURCES_KEY && Array.isArray(value)) {
+        const dataSources = value as unknown as DataSource[];
+        const sanitizedDataSources = dataSources.map(ds => {
+            // Allow Supabase and Demo types to be stored fully.
+            if (ds.type === 'Supabase' || ds.type === 'LocalStorage (Demo)') {
+                return ds;
             }
-
-            // For Supabase, maintain the existing encryption logic.
-            if (source.type === 'Supabase') {
-                if (secret && source.connectionString && source.connectionString !== 'N/A') {
-                    // Encrypt if secret is available
-                    return { ...source, connectionString: encrypt(source.connectionString, secret) };
-                }
-                // Strip if no secret is available (security fallback)
-                return { ...source, connectionString: '' };
-            }
-            
-            // For all other types (e.g., LocalStorage (Demo)), return as is.
-            return source;
+            // For all other DB types, redact the connection string for local storage.
+            return { ...ds, connectionString: '' };
         });
-        setLocalItem(key, sanitizedSources);
-    } else {
-        setLocalItem(key, value);
+        // Re-assign the value that will be stored.
+        valueToStore = sanitizedDataSources as unknown as T;
     }
+
+    // Common encryption and storage logic.
+    const secret = await getOrCreateSecret();
+    const jsonString = JSON.stringify(valueToStore);
+    const encryptedValue = encrypt(jsonString, secret);
+    await idbService.set(key, encryptedValue);
 }
 
 /**
- * Deletes a configuration value locally.
+ * Deletes a configuration value locally from IndexedDB.
  * @param key The key of the configuration to delete.
  */
-export const deleteConfigLocal = (key: string): void => {
-    deleteLocalItem(key);
+export const deleteConfigLocal = async (key: string): Promise<void> => {
+    await idbService.del(key);
 };
 
 
-export const getLocalTombstones = (): DeletionTombstone[] => {
-    return getLocalItem<DeletionTombstone[]>(DELETION_TOMBSTONES_KEY) || [];
+export const getLocalTombstones = async (): Promise<DeletionTombstone[]> => {
+    // Tombstones are not sensitive user data, so they are not encrypted.
+    return await idbService.get<DeletionTombstone[]>(DELETION_TOMBSTONES_KEY) || [];
 }
 
-export const setLocalTombstones = (tombstones: DeletionTombstone[]): void => {
-    setLocalItem(DELETION_TOMBSTONES_KEY, tombstones);
+export const setLocalTombstones = async (tombstones: DeletionTombstone[]): Promise<void> => {
+    await idbService.set(DELETION_TOMBSTONES_KEY, tombstones);
 }
 
 
@@ -148,6 +191,9 @@ export const setLocalTombstones = (tombstones: DeletionTombstone[]): void => {
  * @returns A promise that resolves with an object containing all configurations.
  */
 export const getAllConfigs = async (apiConfig: ApiConfig, context?: RequestContext): Promise<AllConfigs> => {
+    // This will run once on startup, moving old localStorage data to IndexedDB.
+    await migrateFromLocalStorageToIndexedDB();
+
     const emptyState: AllConfigs = {
         dashboards: [], cards: [], variables: [], dataSources: [],
         whiteLabelSettings: null, appSettings: null
@@ -197,10 +243,7 @@ export const getAllConfigs = async (apiConfig: ApiConfig, context?: RequestConte
             const response = await fetch(url, { headers });
 
             if (!response.ok) {
-                // If 404, it's not an error, just means no configs exist yet.
-                if (response.status === 404) {
-                    // Fall through to local storage logic
-                } else {
+                if (response.status !== 404) {
                     throw new Error(`API returned status ${response.status}`);
                 }
             } else {
@@ -221,19 +264,22 @@ export const getAllConfigs = async (apiConfig: ApiConfig, context?: RequestConte
                 }
             }
         } catch (error) {
-             console.warn(`API call to getAllConfigs failed, falling back to localStorage. Error:`, error);
+             console.warn(`API call to getAllConfigs failed, falling back to IndexedDB. Error:`, error);
         }
     }
 
-    // 3. Fallback to local storage if API fails or isn't configured
-    console.log("getAllConfigs falling back to local storage.");
-    const allKeys = Object.keys(localStorage);
+    // 3. Fallback to local storage (now IndexedDB) if API fails or isn't configured
+    console.log("getAllConfigs falling back to IndexedDB.");
+    const allItems = await idbService.getAll();
     const localResult: AllConfigs = { ...emptyState };
-    for (const storageKey of allKeys) {
-        if (storageKey.startsWith(LOCAL_STORAGE_PREFIX)) {
-            const appKey = storageKey.substring(LOCAL_STORAGE_PREFIX.length);
-            const value = getLocalItem<any>(appKey);
-            if (value === null) continue;
+    const secret = await getOrCreateSecret();
+
+    for (const { key: appKey, value: storedValue } of allItems) {
+        if (typeof storedValue !== 'string' || appKey === MIGRATION_KEY || appKey === DELETION_TOMBSTONES_KEY || appKey === SECRET_KEY) continue;
+        
+        try {
+            const decryptedString = decrypt(storedValue, secret);
+            const value = JSON.parse(decryptedString);
 
             if (appKey.startsWith(DASHBOARD_CONFIG_PREFIX)) localResult.dashboards.push(value);
             else if (appKey.startsWith(DASHBOARD_CARDS_PREFIX)) localResult.cards.push(...value);
@@ -241,6 +287,8 @@ export const getAllConfigs = async (apiConfig: ApiConfig, context?: RequestConte
             else if (appKey === DATA_SOURCES_KEY) localResult.dataSources = value;
             else if (appKey === WHITE_LABEL_KEY) localResult.whiteLabelSettings = value;
             else if (appKey === APP_SETTINGS_KEY) localResult.appSettings = value;
+        } catch (e) {
+            console.error(`Could not decrypt/parse key ${appKey} from IndexedDB`, e);
         }
     }
     return localResult;
@@ -250,7 +298,7 @@ export const getAllConfigs = async (apiConfig: ApiConfig, context?: RequestConte
 
 /**
  * Fetches a specific configuration value by its key from the backend.
- * Falls back to localStorage on API failure for offline/demo support.
+ * Falls back to IndexedDB on API failure for offline/demo support.
  * @param key The key of the configuration to fetch.
  * @param apiConfig The instance-specific API configuration.
  * @returns A promise that resolves with the configuration value, or null if not found.
@@ -260,32 +308,19 @@ export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: 
     const supabase = await createSupabaseClient(apiConfig);
     if (supabase) {
         try {
-            let query = supabase
-                .from(SUPABASE_TABLE_NAME)
-                .select('value')
-                .eq('key', key);
-
+            let query = supabase.from(SUPABASE_TABLE_NAME).select('value').eq('key', key);
             const tenantId = apiConfig.TENANT_ID || null;
-            const department = context?.department || null;
-            const owner = context?.owner || null;
-
             if (tenantId) query = query.eq('tenant_id', tenantId);
-            if (department) query = query.eq('department', department);
-            if (owner) query = query.eq('owner', owner);
+            if (context?.department) query = query.eq('department', context.department);
+            if (context?.owner) query = query.eq('owner', context.owner);
             
             const { data, error } = await query.maybeSingle();
-
-            if (error) {
-                throw new Error(error.message);
-            }
-            
+            if (error) throw new Error(error.message);
             return data ? (data.value as T) : null;
-            
         } catch (error) {
             console.warn(`Supabase getConfig failed, falling back. Error:`, error);
         }
     }
-
 
     // 2. Fallback to custom API
     if (apiConfig.CONFIG_API_URL) {
@@ -306,33 +341,27 @@ export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: 
             }
             const responseData = await response.json();
             
-            // FIX: Handle backend returning the full document vs. just the value.
             if (responseData && typeof responseData === 'object' && 'value' in responseData) {
                 return responseData.value as T;
             }
             return responseData as T;
-
         } catch (error) {
-            console.warn(`API call to getConfig failed, falling back to localStorage. Error:`, error);
+            console.warn(`API call to getConfig failed, falling back to IndexedDB. Error:`, error);
         }
     }
     
-    // 3. Fallback to localStorage.
-    const localData = getLocalItem<T>(key);
-    if (key === DATA_SOURCES_KEY && localData) {
-        const sources = localData as unknown as DataSource[];
-        const secret = apiConfig.LOCAL_DATA_SECRET;
-        const SENSITIVE_DB_TYPES: DatabaseType[] = ['PostgreSQL', 'MySQL', 'SQL Server', 'Redis', 'MongoDB', 'CosmosDB', 'Supabase'];
+    // 3. Fallback to IndexedDB.
+    const storedValue = await idbService.get<string>(key);
+    if (!storedValue) return null;
 
-        const processedSources = sources.map(source => {
-            if (SENSITIVE_DB_TYPES.includes(source.type) && secret && source.connectionString) {
-                return { ...source, connectionString: decrypt(source.connectionString, secret) };
-            }
-            return source;
-        });
-        return processedSources as T;
+    try {
+        const secret = await getOrCreateSecret();
+        const decryptedString = decrypt(storedValue, secret);
+        return JSON.parse(decryptedString) as T;
+    } catch(e) {
+        console.error(`Failed to decrypt/parse key ${key} from IndexedDB`, e);
+        return null;
     }
-    return localData;
 };
 
 /**
@@ -346,30 +375,21 @@ export const getConfigsByPrefix = async <T>(prefix: string, apiConfig: ApiConfig
     const supabase = await createSupabaseClient(apiConfig);
     if (supabase) {
         try {
-            let query = supabase
-                .from(SUPABASE_TABLE_NAME)
-                .select('value')
-                .like('key', `${prefix}%`); // Use LIKE for prefix matching
-
+            let query = supabase.from(SUPABASE_TABLE_NAME).select('value').like('key', `${prefix}%`);
             const tenantId = apiConfig.TENANT_ID || null;
-            const department = context?.department || null;
-            const owner = context?.owner || null;
-
             if (tenantId) query = query.eq('tenant_id', tenantId);
-            if (department) query = query.eq('department', department);
-            if (owner) query = query.eq('owner', owner);
+            if (context?.department) query = query.eq('department', context.department);
+            if (context?.owner) query = query.eq('owner', context.owner);
 
             const { data, error } = await query;
-
             if (error) throw new Error(error.message);
-            
             return data ? data.map(item => item.value as T) : [];
         } catch (error) {
             console.warn(`Supabase getConfigsByPrefix failed, falling back. Error:`, error);
         }
     }
 
-    // 2. Custom API is not supported for prefix search in this implementation.
+    // 2. Custom API
     if (apiConfig.CONFIG_API_URL) {
         try {
             const url = `${apiConfig.CONFIG_API_URL}?prefix=${encodeURIComponent(prefix)}`;
@@ -381,28 +401,29 @@ export const getConfigsByPrefix = async <T>(prefix: string, apiConfig: ApiConfig
             if (context?.owner) headers['X-Owner'] = context.owner;
             
             const response = await fetch(url, { headers });
-
             if (!response.ok) {
-                if(response.status === 404) return null; // 404 is a valid "not found" response.
+                if(response.status === 404) return [];
                 throw new Error(`API returned status ${response.status}`);
             }
             const res = await response.json();
-
             return res ? res.map((item: any) => item.value as T) : [];
         } catch (error) {
-            console.warn(`API call to getConfig failed, falling back to localStorage. Error:`, error);
+            console.warn(`API call for prefix failed, falling back to IndexedDB. Error:`, error);
         }
     }    
 
-    // 3. Fallback to localStorage.
+    // 3. Fallback to IndexedDB.
+    const allItems = await idbService.getAll();
     const results: T[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-        const storageKey = localStorage.key(i);
-        if (storageKey && storageKey.startsWith(`${LOCAL_STORAGE_PREFIX}${prefix}`)) {
-            const appKey = storageKey.substring(LOCAL_STORAGE_PREFIX.length);
-            const item = getLocalItem<T>(appKey);
-            if (item) {
-                results.push(item);
+    const secret = await getOrCreateSecret();
+
+    for (const { key, value: storedValue } of allItems) {
+        if (typeof key === 'string' && key.startsWith(prefix) && typeof storedValue === 'string') {
+            try {
+                const decryptedString = decrypt(storedValue, secret);
+                results.push(JSON.parse(decryptedString));
+            } catch (e) {
+                 console.error(`Could not decrypt/parse key ${key} from IndexedDB`, e);
             }
         }
     }
@@ -419,35 +440,26 @@ export const getConfigsByPrefix = async <T>(prefix: string, apiConfig: ApiConfig
  * @returns A promise resolving to 'remote' if saved to API, or 'local' if no API is configured.
  */
 export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, context?: RequestContext): Promise<'remote' | 'local'> => {
-    const updateLocalStorage = () => {
-        setConfigLocal(key, value, apiConfig);
-    };
-
+    // This function handles both local and remote saving.
+    // The remote part will send the complete, unencrypted data.
+    // The local part will save the complete data, but encrypted.
+    const saveLocally = () => setConfigLocal(key, value);
+    
     // 1. Try Supabase first
     const supabase = await createSupabaseClient(apiConfig);
     if (supabase) {
         try {
-            const tenantId = apiConfig.TENANT_ID || null;
-            const department = context?.department || null;
-            const owner = context?.owner || null;
-            
             const record = {
-                key,
-                value,
-                tenant_id: tenantId,
-                department,
-                owner,
+                key, value,
+                tenant_id: apiConfig.TENANT_ID || null,
+                department: context?.department || null,
+                owner: context?.owner || null,
                 last_modified: new Date().toISOString(),
             };
-
-            let selectQuery = supabase
-                .from(SUPABASE_TABLE_NAME)
-                .select('id')
-                .eq('key', key);
-            
-            if (tenantId) selectQuery = selectQuery.eq('tenant_id', tenantId);
-            if (department) selectQuery = selectQuery.eq('department', department);
-            if (owner) selectQuery = selectQuery.eq('owner', owner);
+            let selectQuery = supabase.from(SUPABASE_TABLE_NAME).select('id').eq('key', key);
+            if (record.tenant_id) selectQuery = selectQuery.eq('tenant_id', record.tenant_id);
+            if (record.department) selectQuery = selectQuery.eq('department', record.department);
+            if (record.owner) selectQuery = selectQuery.eq('owner', record.owner);
 
             const { data: existing, error: selectError } = await selectQuery.maybeSingle();
             if (selectError) throw selectError;
@@ -458,7 +470,7 @@ export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, 
             
             if (finalError) throw finalError;
 
-            updateLocalStorage();
+            await saveLocally();
             return 'remote';
         } catch (error) {
             console.error(`Supabase setConfig failed. Error:`, error);
@@ -487,9 +499,8 @@ export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, 
                 throw new Error(`API returned status ${response.status}: ${errorBody}`);
             }
             
-            updateLocalStorage();
+            await saveLocally();
             return 'remote';
-
         } catch (error) {
              console.error(`API call to setConfig failed. Error:`, error);
              throw error;
@@ -497,7 +508,7 @@ export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, 
     }
 
     // 3. Fallback for setups without a remote backend: still save locally.
-    updateLocalStorage();
+    await saveLocally();
     return 'local';
 };
 
@@ -506,57 +517,52 @@ export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, 
  * @param key The key of the configuration to delete.
  * @param apiConfig The instance-specific API configuration.
  */
-export const deleteConfig = async (key: string, apiConfig: ApiConfig, context?: RequestContext): Promise<void> => {
-    deleteLocalItem(key);
+export const deleteConfig = async (key: string, apiConfig: ApiConfig, context?: RequestContext): Promise<'remote' | 'local'> => {
+    await deleteConfigLocal(key);
 
     const supabase = await createSupabaseClient(apiConfig);
     if (supabase) {
         try {
-            let query = supabase
-                .from(SUPABASE_TABLE_NAME)
-                .delete()
-                .eq('key', key);
-            
+            let query = supabase.from(SUPABASE_TABLE_NAME).delete().eq('key', key);
             const tenantId = apiConfig.TENANT_ID || null;
-            const department = context?.department || null;
-            const owner = context?.owner || null;
-
             if (tenantId) query = query.eq('tenant_id', tenantId);
-            if (department) query = query.eq('department', department);
-            if (owner) query = query.eq('owner', owner);
+            if (context?.department) query = query.eq('department', context.department);
+            if (context?.owner) query = query.eq('owner', context.owner);
 
             const { error } = await query;
             if (error) throw error;
-            return;
+            return 'remote';
         } catch (error) {
             console.error(`Supabase deleteConfig failed. Error:`, error);
             throw error;
         }
     }
-    
+
     if (apiConfig.CONFIG_API_URL) {
         try {
-            const url = `${apiConfig.CONFIG_API_URL}?key=${encodeURIComponent(key)}`;
-            const headers: HeadersInit = {};
+            const headers: HeadersInit = { 'Content-Type': 'application/json' };
             if (apiConfig.TENANT_ID) headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
             if (apiConfig.API_KEY) headers['api_key'] = apiConfig.API_KEY;
             if (apiConfig.API_SECRET) headers['api_secret'] = apiConfig.API_SECRET;
             if (context?.department) headers['X-Department'] = context.department;
             if (context?.owner) headers['X-Owner'] = context.owner;
-
-            const response = await fetch(url, {
+            
+            const response = await fetch(apiConfig.CONFIG_API_URL, {
                 method: 'DELETE',
                 headers,
+                body: JSON.stringify({ key }),
             });
-            // A 404 is acceptable, it means the resource was already deleted.
-            if (!response.ok && response.status !== 404) {
+
+            if (!response.ok) {
                 const errorBody = await response.text();
                 throw new Error(`API returned status ${response.status}: ${errorBody}`);
             }
-            return;
-        } catch (error) {
+            return 'remote';
+        } catch(error) {
             console.error(`API call to deleteConfig failed. Error:`, error);
             throw error;
         }
     }
+    
+    return 'local';
 };
