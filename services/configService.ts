@@ -191,30 +191,37 @@ export const setLocalTombstones = async (tombstones: DeletionTombstone[]): Promi
  * @returns A promise that resolves with an object containing all configurations.
  */
 export const getAllConfigs = async (apiConfig: ApiConfig, context?: RequestContext): Promise<AllConfigs> => {
-    // This will run once on startup, moving old localStorage data to IndexedDB.
     await migrateFromLocalStorageToIndexedDB();
 
     const emptyState: AllConfigs = {
         dashboards: [], cards: [], variables: [], dataSources: [],
         whiteLabelSettings: null, appSettings: null
     };
+    const tenantId = apiConfig.TENANT_ID || null;
 
     // 1. Try Supabase first
     const supabase = await createSupabaseClient(apiConfig);
     if (supabase) {
         try {
-            let query = supabase.from(SUPABASE_TABLE_NAME).select('key, value');
-            const tenantId = apiConfig.TENANT_ID || null;
-            if (tenantId) query = query.eq('tenant_id', tenantId);
-            if (context?.department) query = query.eq('department', context.department);
-            if (context?.owner) query = query.eq('owner', context.owner);
+            // Fetch department-specific configs (everything except appSettings)
+            let deptQuery = supabase.from(SUPABASE_TABLE_NAME).select('key, value').not('key', 'eq', APP_SETTINGS_KEY);
+            if (tenantId) deptQuery = deptQuery.eq('tenant_id', tenantId);
+            if (context?.department) deptQuery = deptQuery.like('department', `${context.department}%`);
+            const { data: deptData, error: deptError } = await deptQuery;
+            if (deptError) throw deptError;
 
-            const { data, error } = await query;
-            if (error) throw error;
+            // Fetch owner-specific config (appSettings)
+            let ownerQuery = supabase.from(SUPABASE_TABLE_NAME).select('key, value').eq('key', APP_SETTINGS_KEY);
+            if (tenantId) ownerQuery = ownerQuery.eq('tenant_id', tenantId);
+            if (context?.owner) ownerQuery = ownerQuery.eq('owner', context.owner);
+            const { data: ownerData, error: ownerError } = await ownerQuery;
+            if (ownerError) throw ownerError;
+
+            const combinedData = [...(deptData || []), ...(ownerData || [])];
             
-            if (data && data.length > 0) {
+            if (combinedData.length > 0) {
                 const result: AllConfigs = { ...emptyState };
-                data.forEach(item => {
+                combinedData.forEach(item => {
                     if (item.key.startsWith(DASHBOARD_CONFIG_PREFIX)) result.dashboards.push(item.value);
                     else if (item.key.startsWith(DASHBOARD_CARDS_PREFIX)) result.cards.push(...item.value);
                     else if (item.key.startsWith(DASHBOARD_VARIABLES_PREFIX)) result.variables.push(...item.value);
@@ -232,37 +239,52 @@ export const getAllConfigs = async (apiConfig: ApiConfig, context?: RequestConte
     // 2. Fallback to custom API
     if (apiConfig.CONFIG_API_URL) {
         try {
-            const url = apiConfig.CONFIG_API_URL;
-            const headers: HeadersInit = {};
-            if (apiConfig.TENANT_ID) headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
-            if (apiConfig.API_KEY) headers['api_key'] = apiConfig.API_KEY;
-            if (apiConfig.API_SECRET) headers['api_secret'] = apiConfig.API_SECRET;
-            if (context?.department) headers['X-Department'] = context.department;
-            if (context?.owner) headers['X-Owner'] = context.owner;
+            // Fetch department-level configs
+            const deptUrl = apiConfig.CONFIG_API_URL;
+            const deptHeaders: HeadersInit = {};
+            if (apiConfig.TENANT_ID) deptHeaders['X-Tenant-Id'] = apiConfig.TENANT_ID;
+            if (apiConfig.API_KEY) deptHeaders['api_key'] = apiConfig.API_KEY;
+            if (apiConfig.API_SECRET) deptHeaders['api_secret'] = apiConfig.API_SECRET;
+            if (context?.department) deptHeaders['X-Department'] = context.department;
             
-            const response = await fetch(url, { headers });
+            const deptResponse = await fetch(deptUrl, { headers: deptHeaders });
 
-            if (!response.ok) {
-                if (response.status !== 404) {
-                    throw new Error(`API returned status ${response.status}`);
-                }
-            } else {
-                const data = await response.json();
-                if (Array.isArray(data)) {
-                    const result: AllConfigs = { ...emptyState };
-                    data.forEach(item => {
-                        if (item.key.startsWith(DASHBOARD_CONFIG_PREFIX)) result.dashboards.push(item.value);
-                        else if (item.key.startsWith(DASHBOARD_CARDS_PREFIX)) result.cards.push(...item.value);
-                        else if (item.key.startsWith(DASHBOARD_VARIABLES_PREFIX)) result.variables.push(...item.value);
-                        else if (item.key === DATA_SOURCES_KEY) result.dataSources = item.value;
-                        else if (item.key === WHITE_LABEL_KEY) result.whiteLabelSettings = item.value;
-                        else if (item.key === APP_SETTINGS_KEY) result.appSettings = item.value;
-                    });
-                    return result;
-                } else {
-                     console.warn(`API call to getAllConfigs did not return an array, falling back.`, data);
-                }
+            let deptData = [];
+            if (deptResponse.ok) {
+                 deptData = await deptResponse.json();
+            } else if (deptResponse.status !== 404) {
+                throw new Error(`API returned status ${deptResponse.status}`);
             }
+
+            // Fetch owner-level app settings
+            const ownerUrl = `${apiConfig.CONFIG_API_URL}?key=${APP_SETTINGS_KEY}`;
+            const ownerHeaders: HeadersInit = { ...deptHeaders };
+            delete ownerHeaders['X-Department'];
+            if (context?.owner) ownerHeaders['X-Owner'] = context.owner;
+
+            const ownerResponse = await fetch(ownerUrl, { headers: ownerHeaders });
+            let ownerAppSettings = null;
+            if (ownerResponse.ok) {
+                ownerAppSettings = await ownerResponse.json();
+            }
+
+            // Combine results, prioritizing owner-specific appSettings
+            const result: AllConfigs = { ...emptyState };
+            (deptData || []).forEach((item: any) => {
+                if (item.key.startsWith(DASHBOARD_CONFIG_PREFIX)) result.dashboards.push(item.value);
+                else if (item.key.startsWith(DASHBOARD_CARDS_PREFIX)) result.cards.push(...item.value);
+                else if (item.key.startsWith(DASHBOARD_VARIABLES_PREFIX)) result.variables.push(...item.value);
+                else if (item.key === DATA_SOURCES_KEY) result.dataSources = item.value;
+                else if (item.key === WHITE_LABEL_KEY) result.whiteLabelSettings = item.value;
+                else if (item.key === APP_SETTINGS_KEY && !ownerAppSettings) {
+                     result.appSettings = item.value;
+                }
+            });
+            if (ownerAppSettings) {
+                result.appSettings = ownerAppSettings.value || ownerAppSettings;
+            }
+            return result;
+
         } catch (error) {
              console.warn(`API call to getAllConfigs failed, falling back to IndexedDB. Error:`, error);
         }
@@ -304,6 +326,8 @@ export const getAllConfigs = async (apiConfig: ApiConfig, context?: RequestConte
  * @returns A promise that resolves with the configuration value, or null if not found.
  */
 export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: RequestContext): Promise<T | null> => {
+    const isAppSettings = key === APP_SETTINGS_KEY;
+
     // 1. Try Supabase first
     const supabase = await createSupabaseClient(apiConfig);
     if (supabase) {
@@ -311,8 +335,12 @@ export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: 
             let query = supabase.from(SUPABASE_TABLE_NAME).select('value').eq('key', key);
             const tenantId = apiConfig.TENANT_ID || null;
             if (tenantId) query = query.eq('tenant_id', tenantId);
-            if (context?.department) query = query.eq('department', context.department);
-            if (context?.owner) query = query.eq('owner', context.owner);
+
+            if (isAppSettings) {
+                if (context?.owner) query = query.eq('owner', context.owner);
+            } else {
+                if (context?.department) query = query.eq('department', context.department);
+            }
             
             const { data, error } = await query.maybeSingle();
             if (error) throw new Error(error.message);
@@ -330,8 +358,12 @@ export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: 
             if (apiConfig.TENANT_ID) headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
             if (apiConfig.API_KEY) headers['api_key'] = apiConfig.API_KEY;
             if (apiConfig.API_SECRET) headers['api_secret'] = apiConfig.API_SECRET;
-            if (context?.department) headers['X-Department'] = context.department;
-            if (context?.owner) headers['X-Owner'] = context.owner;
+            
+            if (isAppSettings) {
+                 if (context?.owner) headers['X-Owner'] = context.owner;
+            } else {
+                 if (context?.department) headers['X-Department'] = context.department;
+            }
             
             const response = await fetch(url, { headers });
 
@@ -378,8 +410,8 @@ export const getConfigsByPrefix = async <T>(prefix: string, apiConfig: ApiConfig
             let query = supabase.from(SUPABASE_TABLE_NAME).select('value').like('key', `${prefix}%`);
             const tenantId = apiConfig.TENANT_ID || null;
             if (tenantId) query = query.eq('tenant_id', tenantId);
-            if (context?.department) query = query.eq('department', context.department);
-            if (context?.owner) query = query.eq('owner', context.owner);
+            // Prefixes are for dashboards/cards/variables which are department-specific
+            if (context?.department) query = query.like('department', `${context.department}%`);
 
             const { data, error } = await query;
             if (error) throw new Error(error.message);
@@ -398,7 +430,6 @@ export const getConfigsByPrefix = async <T>(prefix: string, apiConfig: ApiConfig
             if (apiConfig.API_KEY) headers['api_key'] = apiConfig.API_KEY;
             if (apiConfig.API_SECRET) headers['api_secret'] = apiConfig.API_SECRET;
             if (context?.department) headers['X-Department'] = context.department;
-            if (context?.owner) headers['X-Owner'] = context.owner;
             
             const response = await fetch(url, { headers });
             if (!response.ok) {
@@ -440,11 +471,9 @@ export const getConfigsByPrefix = async <T>(prefix: string, apiConfig: ApiConfig
  * @returns A promise resolving to 'remote' if saved to API, or 'local' if no API is configured.
  */
 export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, context?: RequestContext): Promise<'remote' | 'local'> => {
-    // This function handles both local and remote saving.
-    // The remote part will send the complete, unencrypted data.
-    // The local part will save the complete data, but encrypted.
     const saveLocally = () => setConfigLocal(key, value);
-    
+    const isAppSettings = key === APP_SETTINGS_KEY;
+
     // 1. Try Supabase first
     const supabase = await createSupabaseClient(apiConfig);
     if (supabase) {
@@ -452,14 +481,21 @@ export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, 
             const record = {
                 key, value,
                 tenant_id: apiConfig.TENANT_ID || null,
-                department: context?.department || null,
-                owner: context?.owner || null,
+                department: !isAppSettings ? (context?.department || null) : null,
+                owner: isAppSettings ? (context?.owner || null) : null,
                 last_modified: new Date().toISOString(),
             };
+
             let selectQuery = supabase.from(SUPABASE_TABLE_NAME).select('id').eq('key', key);
             if (record.tenant_id) selectQuery = selectQuery.eq('tenant_id', record.tenant_id);
-            if (record.department) selectQuery = selectQuery.eq('department', record.department);
-            if (record.owner) selectQuery = selectQuery.eq('owner', record.owner);
+
+            if (isAppSettings) {
+                if (record.owner) selectQuery = selectQuery.eq('owner', record.owner);
+                else selectQuery = selectQuery.is('owner', null);
+            } else {
+                if (record.department) selectQuery = selectQuery.eq('department', record.department);
+                else selectQuery = selectQuery.is('department', null);
+            }
 
             const { data: existing, error: selectError } = await selectQuery.maybeSingle();
             if (selectError) throw selectError;
@@ -485,8 +521,12 @@ export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, 
             if (apiConfig.TENANT_ID) headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
             if (apiConfig.API_KEY) headers['api_key'] = apiConfig.API_KEY;
             if (apiConfig.API_SECRET) headers['api_secret'] = apiConfig.API_SECRET;
-            if (context?.department) headers['X-Department'] = context.department;
-            if (context?.owner) headers['X-Owner'] = context.owner;
+            
+            if (isAppSettings) {
+                 if (context?.owner) headers['X-Owner'] = context.owner;
+            } else {
+                 if (context?.department) headers['X-Department'] = context.department;
+            }
 
             const response = await fetch(apiConfig.CONFIG_API_URL, {
                 method: 'POST',
@@ -519,6 +559,7 @@ export const setConfig = async <T>(key: string, value: T, apiConfig: ApiConfig, 
  */
 export const deleteConfig = async (key: string, apiConfig: ApiConfig, context?: RequestContext): Promise<'remote' | 'local'> => {
     await deleteConfigLocal(key);
+    const isAppSettings = key === APP_SETTINGS_KEY;
 
     const supabase = await createSupabaseClient(apiConfig);
     if (supabase) {
@@ -526,8 +567,12 @@ export const deleteConfig = async (key: string, apiConfig: ApiConfig, context?: 
             let query = supabase.from(SUPABASE_TABLE_NAME).delete().eq('key', key);
             const tenantId = apiConfig.TENANT_ID || null;
             if (tenantId) query = query.eq('tenant_id', tenantId);
-            if (context?.department) query = query.eq('department', context.department);
-            if (context?.owner) query = query.eq('owner', context.owner);
+
+            if (isAppSettings) {
+                if (context?.owner) query = query.eq('owner', context.owner);
+            } else {
+                if (context?.department) query = query.eq('department', context.department);
+            }
 
             const { error } = await query;
             if (error) throw error;
@@ -544,8 +589,12 @@ export const deleteConfig = async (key: string, apiConfig: ApiConfig, context?: 
             if (apiConfig.TENANT_ID) headers['X-Tenant-Id'] = apiConfig.TENANT_ID;
             if (apiConfig.API_KEY) headers['api_key'] = apiConfig.API_KEY;
             if (apiConfig.API_SECRET) headers['api_secret'] = apiConfig.API_SECRET;
-            if (context?.department) headers['X-Department'] = context.department;
-            if (context?.owner) headers['X-Owner'] = context.owner;
+
+            if (isAppSettings) {
+                 if (context?.owner) headers['X-Owner'] = context.owner;
+            } else {
+                 if (context?.department) headers['X-Department'] = context.department;
+            }
             
             const response = await fetch(apiConfig.CONFIG_API_URL, {
                 method: 'DELETE',
