@@ -44,7 +44,7 @@ const AuthenticatedApp: React.FC<AuthenticatedAppProps> = ({ user }) => {
           <DashboardView 
             instanceKey="main" 
             department="trader" 
-            owner={AuthFlow.user.email} 
+            owner={user?.email} 
             allowDashboardManagement={true}
             allowDataSourceManagement={true}
             showInfoScreen={true}
