@@ -43,8 +43,8 @@ const AuthenticatedApp: React.FC<AuthenticatedAppProps> = ({ user }) => {
         <main className="flex-1 overflow-x-hidden overflow-y-auto">
           <DashboardView 
             instanceKey="main" 
-            department="Sales" 
-            owner="j.doe" 
+            department="trader" 
+            owner={AuthFlow.user.email} 
             allowDashboardManagement={true}
             allowDataSourceManagement={true}
             showInfoScreen={true}
