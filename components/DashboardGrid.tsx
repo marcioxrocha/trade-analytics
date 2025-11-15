@@ -493,7 +493,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
                     ref={dashboardGridRef}
                     onDrop={handleDrop}
                     onDragOver={(e) => e.preventDefault()}
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 auto-rows-min gap-6"
+                    className="grid grid-cols-1 lg:grid-cols-4 auto-rows-min gap-6"
                 >
                     {cardsForActiveDashboard.map((card) => (
                         <DashboardCard

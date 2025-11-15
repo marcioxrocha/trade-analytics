@@ -362,7 +362,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
             const averageValues = hasAverages ? calculateSummaryRow('average') : null;
 
             return (
-                <div className="h-full">
+                <div className="h-full overflow-x-auto">
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-[-16px] md:top-[-32px]">
                             <tr>

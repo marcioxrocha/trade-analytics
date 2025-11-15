@@ -8,8 +8,8 @@ import SaveStatusIndicator from './SaveStatusIndicator';
 import Modal from './Modal';
 import DataSourceExportImportModal from './DataSourceExportImportModal';
 
-const SettingsCard: React.FC<{ title: string; description: string; children?: React.ReactNode }> = ({ title, description, children }) => (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+const SettingsCard: React.FC<{ title: string; description: string; children?: React.ReactNode }> = ({ title, description, children, rowSpan }) => (
+    <div className={`bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg row-span-${rowSpan?rowSpan:1}`}>
         <h3 className="text-xl font-bold text-gray-800 dark:text-white">{title}</h3>
         <p className="text-gray-500 dark:text-gray-400 mt-1 mb-4">{description}</p>
         {children}
@@ -228,55 +228,10 @@ const SettingsView: React.FC = () => {
                 )}
             </div>
             
-            <div className="w-full mx-auto grid grid-cols-1 gap-6">
+            <div className="w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
                 
-                {allowDashboardManagement && (
-                    <>
-                        <SettingsCard title={t('settings.personalize')} description={t('settings.personalizeDesc')}>
-                            <div className="space-y-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <input
-                                            type="color"
-                                            value={whiteLabelSettings.brandColor}
-                                            onChange={(e) => updateWhiteLabelSettings({ brandColor: e.target.value })}
-                                            className="p-1 h-10 w-12 block bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 cursor-pointer rounded-lg"
-                                            title={t('settings.brandColor')}
-                                        />
-                                        <input
-                                            type="text"
-                                            value={whiteLabelSettings.brandColor}
-                                            onChange={(e) => updateWhiteLabelSettings({ brandColor: e.target.value })}
-                                            className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 font-mono"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </SettingsCard>
-                        
-                        <SettingsCard title={t('settings.application')} description={t('settings.applicationDesc')}>
-                            <div className="flex items-center justify-between py-2">
-                                <div>
-                                    <h4 className="font-medium text-gray-800 dark:text-gray-200">{t('settings.autoSave')}</h4>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('settings.autoSaveDesc')}</p>
-                                </div>
-                                <label htmlFor="autoSaveToggle" className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={autoSaveEnabled}
-                                        onChange={toggleAutoSave}
-                                        id="autoSaveToggle"
-                                        className="sr-only peer"
-                                    />
-                                    <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                                </label>
-                            </div>
-                        </SettingsCard>
-                    </>
-                )}  
-
                 {allowDataSourceManagement && (
-                    <SettingsCard title={t('settings.dataSources')} description={t('settings.dataSourcesDesc')}>
+                    <SettingsCard rowSpan="2" title={t('settings.dataSources')} description={t('settings.dataSourcesDesc')}>
                         <div className="flex justify-end gap-2 mb-4">
                             <button onClick={handleOpenDataSourceImport} className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors border dark:border-gray-600">
                             <Icon name="upload_file" className="w-4 h-4" />
@@ -389,6 +344,50 @@ const SettingsView: React.FC = () => {
                     </SettingsCard>
                 )}
 
+                {allowDashboardManagement && (
+                    <>
+                        <SettingsCard title={t('settings.personalize')} description={t('settings.personalizeDesc')}>
+                            <div className="space-y-4">
+                                <div>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <input
+                                            type="color"
+                                            value={whiteLabelSettings.brandColor}
+                                            onChange={(e) => updateWhiteLabelSettings({ brandColor: e.target.value })}
+                                            className="p-1 h-10 w-12 block bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 cursor-pointer rounded-lg"
+                                            title={t('settings.brandColor')}
+                                        />
+                                        <input
+                                            type="text"
+                                            value={whiteLabelSettings.brandColor}
+                                            onChange={(e) => updateWhiteLabelSettings({ brandColor: e.target.value })}
+                                            className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 font-mono"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </SettingsCard>
+                        
+                        <SettingsCard title={t('settings.application')} description={t('settings.applicationDesc')}>
+                            <div className="flex items-center justify-between py-2">
+                                <div>
+                                    <h4 className="font-medium text-gray-800 dark:text-gray-200">{t('settings.autoSave')}</h4>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('settings.autoSaveDesc')}</p>
+                                </div>
+                                <label htmlFor="autoSaveToggle" className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={autoSaveEnabled}
+                                        onChange={toggleAutoSave}
+                                        id="autoSaveToggle"
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                        </SettingsCard>
+                    </>
+                )}
 
             </div>
             <Modal
