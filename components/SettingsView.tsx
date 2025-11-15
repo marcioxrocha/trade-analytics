@@ -228,7 +228,7 @@ const SettingsView: React.FC = () => {
                 )}
             </div>
             
-            <div className="max-w-4xl mx-auto grid grid-cols-1 gap-6">
+            <div className="w-full mx-auto grid grid-cols-1 gap-6">
                 
                 {allowDashboardManagement && (
                     <>
@@ -273,28 +273,7 @@ const SettingsView: React.FC = () => {
                             </div>
                         </SettingsCard>
                     </>
-                )}
-                
-                {(department || owner) && (
-                    <SettingsCard title={t('settings.dataSegregation')} description={t('settings.dataSegregationDesc')}>
-                        <h4 className="text-md font-semibold mb-3">{t('settings.activeContext')}</h4>
-                        <div className="space-y-2">
-                            {department && (
-                                <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-3 rounded-md">
-                                    <span className="font-semibold block">department</span>
-                                    <code className="text-sm text-indigo-600 dark:text-indigo-400">{department}</code>
-                                </div>
-                            )}
-                            {owner && (
-                                <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-3 rounded-md">
-                                    <span className="font-semibold block">owner</span>
-                                    <code className="text-sm text-indigo-600 dark:text-indigo-400">{owner}</code>
-                                </div>
-                            )}
-                        </div>
-                    </SettingsCard>
-                )}
-
+                )}  
 
                 {allowDataSourceManagement && (
                     <SettingsCard title={t('settings.dataSources')} description={t('settings.dataSourcesDesc')}>

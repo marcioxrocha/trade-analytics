@@ -385,7 +385,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
                                 <Icon name="more_vert" className="w-5 h-5" />
                             </button>
                             {isMenuOpen && (
-                                <div className="absolute right-0 mt-2 w-56 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
+                                <div className="absolute right-0 mt-2 w-56 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-30">
                                     <div className="py-1">
                                         <button
                                             onClick={handleOpenExportModal}
@@ -493,7 +493,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({ onEditCard, onAddCard, on
                     ref={dashboardGridRef}
                     onDrop={handleDrop}
                     onDragOver={(e) => e.preventDefault()}
-                    className="grid grid-cols-1 md:grid-cols-4 auto-rows-min gap-6"
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 auto-rows-min gap-6"
                 >
                     {cardsForActiveDashboard.map((card) => (
                         <DashboardCard

@@ -56,15 +56,6 @@ const DashboardSelectorModal: React.FC<DashboardSelectorModalProps> = ({ dashboa
                     )}
                 </ul>
             </div>
-             <div className="mt-4 border-t pt-4 dark:border-gray-600">
-                <button 
-                    onClick={onAddDashboard} 
-                    className="w-full flex justify-center items-center btn-brand text-white px-4 py-2 rounded-md font-semibold transition-all shadow"
-                >
-                    <Icon name="add" className="w-5 h-5 mr-2" />
-                    {t('dashboard.createNewDashboard')}
-                </button>
-            </div>
         </div>
     );
 };

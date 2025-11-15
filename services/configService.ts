@@ -48,15 +48,19 @@ const xorStrings = (a: string, b: string): string => {
 const encrypt = (text: string, key: string): string => {
   if (!key) return text;
   const xorred = xorStrings(text, key);
-  return ENCRYPT_PREFIX + btoa(xorred);
+  // To handle UTF-8 characters correctly with btoa, we need to convert the string.
+  const utf8Friendly = unescape(encodeURIComponent(xorred));
+  return ENCRYPT_PREFIX + btoa(utf8Friendly);
 };
 
 const decrypt = (encryptedText: string, key: string): string => {
   if (!key || !encryptedText.startsWith(ENCRYPT_PREFIX)) return encryptedText;
   try {
     const base64Part = encryptedText.substring(ENCRYPT_PREFIX.length);
-    const decoded = atob(base64Part);
-    return xorStrings(decoded, key);
+    const decodedB64 = atob(base64Part);
+    // Decode the UTF-8 characters back from the byte string.
+    const decodedUtf8 = decodeURIComponent(escape(decodedB64));
+    return xorStrings(decodedUtf8, key);
   } catch (e) {
     console.error("Failed to decrypt data, returning raw value.", e);
     return encryptedText;

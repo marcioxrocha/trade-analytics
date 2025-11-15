@@ -182,7 +182,7 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
                                 }}>
                             <span className="px-3 py-1.5 bg-white dark:bg-gray-700 text-sm font-semibold rounded-md shadow-md whitespace-nowrap">{t('dashboard.newDashboard')}</span>
                             <button
-                                className="bg-white dark:bg-gray-600 text-brand w-12 h-12 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                                className="bg-white dark:bg-gray-600 text-white w-12 h-12 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                                 aria-label={t('dashboard.newDashboard')}
                                 title={t('dashboard.newDashboard')}
                             >
@@ -198,7 +198,7 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
                                 }}>
                             <span className="px-3 py-1.5 bg-white dark:bg-gray-700 text-sm font-semibold rounded-md shadow-md whitespace-nowrap">{t('dashboard.addInsight')}</span>
                             <button
-                                className="bg-white dark:bg-gray-600 text-brand w-12 h-12 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+                                className="bg-white dark:bg-gray-600 text-white w-12 h-12 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
                                 aria-label={t('dashboard.addInsight')}
                                 title={t('dashboard.addInsight')}
                             >

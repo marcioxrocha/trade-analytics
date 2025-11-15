@@ -53,10 +53,10 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
     const userVars = variables.filter(v => v.dashboardId === cardConfig.dashboardId);
     const fixedVars: Variable[] = [];
     if (department) {
-        fixedVars.push({ id: 'fixed-department', dashboardId: cardConfig.dashboardId, name: 'department', value: department });
+        fixedVars.push({ id: 'fixed-department', dashboardId: cardConfig.dashboardId, name: 'department', value: department } as Variable);
     }
     if (owner) {
-        fixedVars.push({ id: 'fixed-owner', dashboardId: cardConfig.dashboardId, name: 'owner', value: owner });
+        fixedVars.push({ id: 'fixed-owner', dashboardId: cardConfig.dashboardId, name: 'owner', value: owner } as Variable);
     }
     return [...fixedVars, ...userVars];
   }, [variables, cardConfig.dashboardId, department, owner]);
