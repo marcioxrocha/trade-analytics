@@ -1,3 +1,4 @@
+
 // --- Core Application Types ---
 
 export interface ApiConfig {
@@ -82,7 +83,7 @@ export enum ChartType {
   SPACER = 'spacer',
 }
 
-export type QueryLanguage = 'sql' | 'mongo' | 'redis' | 'supabase';
+export type QueryLanguage = 'sql' | 'mongo' | 'redis' | 'supabase' | 'json';
 export type ColumnDataType = 'text' | 'integer' | 'decimal' | 'currency' | 'date' | 'datetime' | 'boolean';
 
 export type AggregationType = 'total' | 'average';
@@ -184,7 +185,7 @@ export interface AppContextType {
 
 // --- Data Source and Querying Types ---
 
-export type DatabaseType = 'LocalStorage (Demo)' | 'PostgreSQL' | 'MySQL' | 'SQL Server' | 'Redis' | 'MongoDB' | 'CosmosDB' | 'Supabase';
+export type DatabaseType = 'LocalStorage (Demo)' | 'PostgreSQL' | 'MySQL' | 'SQL Server' | 'Redis' | 'MongoDB' | 'CosmosDB' | 'Supabase' | 'REST API';
 
 export interface DataSource {
   id: string;

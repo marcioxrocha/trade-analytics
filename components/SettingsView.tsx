@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Icon from './Icon';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -17,7 +18,7 @@ const SettingsCard: React.FC<{ title: string; description: string; children?: Re
 );
 
 
-const dbTypes: DatabaseType[] = ['LocalStorage (Demo)', 'PostgreSQL', 'MySQL', 'SQL Server', 'Redis', 'MongoDB', 'CosmosDB', 'Supabase'];
+const dbTypes: DatabaseType[] = ['LocalStorage (Demo)', 'PostgreSQL', 'MySQL', 'SQL Server', 'Redis', 'MongoDB', 'CosmosDB', 'Supabase', 'REST API'];
 
 const SettingsView: React.FC = () => {
     const { t } = useLanguage();
@@ -80,7 +81,7 @@ const SettingsView: React.FC = () => {
                 isValid = false;
                 errorMessage = t('settings.addFormErrorSupabase');
             }
-        } else { // Other DB types
+        } else { // Other DB types including REST API
             if (newSourceString.trim()) {
                 isValid = true;
                 connectionString = newSourceString;
@@ -317,13 +318,13 @@ const SettingsView: React.FC = () => {
                                 </>
                             ) : (
                                 <div>
-                                    <label className="block text-sm font-medium">{t('settings.connectionString')}</label>
+                                    <label className="block text-sm font-medium">{newSourceType === 'REST API' ? t('settings.baseUrl') : t('settings.connectionString')}</label>
                                     <input 
                                         type="text" 
                                         value={newSourceString} 
                                         onChange={e => setNewSourceString(e.target.value)} 
                                         className="w-full mt-1 p-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 disabled:bg-gray-200 dark:disabled:bg-gray-600" 
-                                        placeholder="protocol://user:pass@host:port/db" 
+                                        placeholder={newSourceType === 'REST API' ? "https://api.example.com" : "protocol://user:pass@host:port/db"}
                                         disabled={newSourceType === 'LocalStorage (Demo)'}
                                     />
                                 </div>

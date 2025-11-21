@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { ChartCardData, DataSource, Dashboard, AppContextType, Variable, DashboardFormattingSettings, WhiteLabelSettings, SaveStatus, ExportData, DeletionTombstone, DeletionEntityType, AllConfigs, AppSettings } from '../types';
 import { DATA_SOURCES_KEY, WHITE_LABEL_KEY, DEFAULT_BRAND_COLOR, APP_SETTINGS_KEY, LAST_ACTIVE_DASHBOARD_ID_KEY, DASHBOARD_CONFIG_PREFIX, DASHBOARD_CARDS_PREFIX, DASHBOARD_VARIABLES_PREFIX } from '../constants';
@@ -313,7 +314,22 @@ export const AppProvider: React.FC<AppProviderProps> = ({
       lastModified: now,
     };
     const originalCards = dashboardCards.filter(c => c.dashboardId === dashboardId);
-    const newCards = originalCards.map(card => ({ ...card, id: crypto.randomUUID(), dashboardId: newDashboard.id, lastModified: now }));
+    // Strip 'data' from cards during duplication as well to be clean
+    const newCards = originalCards.map(card => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { data, ...rest } = card;
+        // Type assertion to handle potential extra properties like rawData
+        const cleanCard = rest as any;
+        delete cleanCard.rawData;
+        delete cleanCard.results;
+
+        return { 
+            ...cleanCard, 
+            id: crypto.randomUUID(), 
+            dashboardId: newDashboard.id, 
+            lastModified: now 
+        };
+    });
     const originalVariables = variables.filter(v => v.dashboardId === dashboardId);
     const newVariables = originalVariables.map(variable => ({ ...variable, id: crypto.randomUUID(), dashboardId: newDashboard.id, lastModified: now }));
 
@@ -386,7 +402,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     if (!cardToClone) return;
 
     const now = new Date().toISOString();
-    const newCard: ChartCardData = { ...cardToClone, id: crypto.randomUUID(), title: `${cardToClone.title} - Copy`, lastModified: now };
+    // Clone without data, strictly
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { data, ...rest } = cardToClone;
+    const cleanCard = rest as any;
+    delete cleanCard.rawData;
+    delete cleanCard.results;
+
+    const newCard: ChartCardData = { ...cleanCard, id: crypto.randomUUID(), title: `${cardToClone.title} - Copy`, lastModified: now };
     
     setDashboardCards(prev => {
       const originalIndex = prev.findIndex(c => c.id === cardId);
@@ -400,7 +423,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({
 
   const updateCard = useCallback((updatedCard: ChartCardData) => {
     const now = new Date().toISOString();
-    setDashboardCards(prev => prev.map(card => card.id === updatedCard.id ? { ...updatedCard, lastModified: now } : card));
+    // Ensure we don't accidentally persist data if it was passed in updatedCard
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { data, ...rest } = updatedCard;
+    const cleanCard = rest as any;
+    delete cleanCard.rawData;
+    delete cleanCard.results;
+
+    // We must merge with existing to keep properties not in updatedCard, but overwrite with cleanCard
+    setDashboardCards(prev => prev.map(card => card.id === updatedCard.id ? { ...card, ...cleanCard, lastModified: now } : card));
     setDashboardUnsaved(updatedCard.dashboardId);
   }, [setDashboardUnsaved]);
 
@@ -463,8 +494,19 @@ export const AppProvider: React.FC<AppProviderProps> = ({
   }, [setDashboardUnsaved]);
 
   const exportDashboards = useCallback((dashboardIds: string[]) => {
-    const cardsToExport = dashboardCards.filter(c => dashboardIds.includes(c.dashboardId));
-    const requiredDataSourceIds = [...new Set(cardsToExport.map(c => c.dataSourceId))];
+    // Filter cards needed for export
+    const cardsToExportRaw = dashboardCards.filter(c => dashboardIds.includes(c.dashboardId));
+    
+    // STRIP 'data' and 'rawData' property to ensure no sensitive data is exported, only configuration.
+    const cardsToExport = cardsToExportRaw.map(card => {
+        // Cast to any to access potential 'rawData' or other rogue properties that might exist at runtime
+        const cardObj = card as any;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { data, rawData, results, ...cardConfig } = cardObj;
+        return cardConfig as ChartCardData;
+    });
+
+    const requiredDataSourceIds = [...new Set(cardsToExportRaw.map(c => c.dataSourceId))];
     const dataSourcesToExport = dataSources.filter(ds => requiredDataSourceIds.includes(ds.id));
 
     const dataToExport: ExportData = {
@@ -472,7 +514,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({
             version: 1,
             exportedAt: new Date().toISOString(),
         },
-        dashboards: dashboards.filter(d => dashboardIds.includes(d.id)).map(d => ({ ...d, saveStatus: 'idle' })),
+        dashboards: dashboards.filter(d => dashboardIds.includes(d.id)).map(d => ({ 
+            ...d, 
+            saveStatus: 'idle',
+            scriptLibrary: d.scriptLibrary // Explicitly include scriptLibrary
+        })),
         cards: cardsToExport,
         variables: variables.filter(v => dashboardIds.includes(v.dashboardId)),
         dataSources: dataSourcesToExport,
@@ -544,6 +590,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
             name: newName,
             saveStatus: 'unsaved',
             lastModified: now,
+            scriptLibrary: dashboardFromFile.scriptLibrary || undefined, // Explicitly carry over script library
         });
     });
 
@@ -552,8 +599,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({
             const oldDataSourceId = card.dataSourceId;
             const newDataSourceId = dataSourceIdMap.get(oldDataSourceId) || oldDataSourceId;
 
+            // Aggressively strip data during import as well to be safe
+            const cardObj = card as any;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { data, rawData, results, ...rest } = cardObj;
+
             newCards.push({
-                ...card,
+                ...rest,
                 id: crypto.randomUUID(),
                 dashboardId: dashboardIdMap.get(card.dashboardId)!,
                 dataSourceId: newDataSourceId,

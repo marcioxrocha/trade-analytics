@@ -1,3 +1,4 @@
+
 import { DataSource, QueryLanguage } from '../types';
 
 export const getLanguageForDataSource = (dataSource: DataSource | undefined): QueryLanguage => {
@@ -10,6 +11,8 @@ export const getLanguageForDataSource = (dataSource: DataSource | undefined): Qu
             return 'redis';
         case 'Supabase':
             return 'supabase';
+        case 'REST API':
+            return 'json';
         case 'LocalStorage (Demo)':
         case 'PostgreSQL':
         case 'MySQL':
@@ -27,6 +30,14 @@ export const getDefaultQuery = (lang: QueryLanguage): string => {
             return 'HGETALL my_hash';
         case 'supabase':
             return "from('orders').select('*')";
+        case 'json': // Default for REST API
+            return JSON.stringify({
+                endpoint: "",
+                method: "GET",
+                headers: [],
+                params: [],
+                body: ""
+            }, null, 2);
         case 'sql':
         default:
             return 'SELECT * FROM orders;';

@@ -1,3 +1,4 @@
+
 import { DataSource } from '../types';
 import { IDatabaseDriver } from './IDatabaseDriver';
 import { LocalStorageDriver } from './LocalStorageDriver';
@@ -7,6 +8,7 @@ import { UnsupportedDriver } from './UnsupportedDriver';
 import { MongoDbDriver } from './MongoDbDriver';
 import { CosmosDbDriver } from './CosmosDbDriver';
 import { SupabaseDriver } from './SupabaseDriver';
+import { RestApiDriver } from './RestApiDriver';
 
 // Singleton instances of stateless drivers
 const localStorageDriver = new LocalStorageDriver();
@@ -15,6 +17,7 @@ const redisDriver = new RedisDriver();
 const mongoDbDriver = new MongoDbDriver();
 const cosmosDbDriver = new CosmosDbDriver();
 const supabaseDriver = new SupabaseDriver();
+const restApiDriver = new RestApiDriver();
 
 export const getDriver = (dataSource: DataSource): IDatabaseDriver => {
   switch (dataSource.type) {
@@ -38,6 +41,9 @@ export const getDriver = (dataSource: DataSource): IDatabaseDriver => {
 
     case 'Supabase':
         return supabaseDriver;
+
+    case 'REST API':
+        return restApiDriver;
 
     default:
       // This will handle any unexpected or new database types gracefully.

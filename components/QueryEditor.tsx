@@ -1,8 +1,10 @@
+
 import React, { useRef, useMemo, useEffect } from 'react';
 import { DataSource, QueryLanguage } from '../types';
 import Icon from './Icon';
 import { useLanguage } from '../contexts/LanguageContext';
 import { highlight } from '../services/syntaxHighlighter';
+import RestQueryBuilder from './RestQueryBuilder';
 
 interface QueryEditorProps {
     query: string;
@@ -32,6 +34,9 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     const backdropRef = useRef<HTMLPreElement>(null);
 
     const highlightedQuery = useMemo(() => highlight(query, queryLanguage), [query, queryLanguage]);
+    
+    const selectedDataSource = dataSources.find(ds => ds.id === selectedDataSourceId);
+    const isRestApi = selectedDataSource?.type === 'REST API';
 
     const handleScroll = () => {
         if (backdropRef.current && editorRef.current) {
@@ -42,34 +47,38 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     
     // Autofocus on the editor when the component mounts if query is empty
     useEffect(() => {
-        if (editorRef.current && !query) {
+        if (editorRef.current && !query && !isRestApi) {
             editorRef.current.focus();
         }
-    }, [query]);
+    }, [query, isRestApi]);
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg flex flex-col h-80 min-h-[16rem] resize-y overflow-auto">
-            <div className="p-4 flex-grow min-h-0 flex flex-col">
-                <div className="relative flex-grow border border-gray-300 dark:border-gray-600 rounded-md">
-                    <pre
-                        ref={backdropRef}
-                        className="absolute inset-0 m-0 p-3 font-mono text-sm bg-gray-50 dark:bg-gray-900 rounded-md overflow-auto whitespace-pre-wrap break-words pointer-events-none"
-                        aria-hidden="true"
-                    >
-                        <code dangerouslySetInnerHTML={{ __html: highlightedQuery + '\n' }} />
-                    </pre>
-                    <textarea
-                        ref={editorRef}
-                        value={query}
-                        onChange={(e) => onQueryChange(e.target.value)}
-                        onScroll={handleScroll}
-                        className="absolute inset-0 m-0 p-3 font-mono text-sm text-transparent bg-transparent border-transparent rounded-md caret-white focus:outline-none resize-none"
-                        spellCheck="false"
-                        aria-label="Query editor"
-                    />
-                </div>
+        <div className={`rounded-xl shadow-lg flex flex-col ${isRestApi ? 'h-auto' : 'bg-white dark:bg-gray-800 h-80 min-h-[16rem] resize-y overflow-auto'}`}>
+            <div className="flex-grow min-h-0 flex flex-col">
+                {isRestApi ? (
+                    <RestQueryBuilder configJson={query} onChange={onQueryChange} />
+                ) : (
+                    <div className="p-4 relative flex-grow border border-gray-300 dark:border-gray-600 rounded-md m-4">
+                        <pre
+                            ref={backdropRef}
+                            className="absolute inset-0 m-0 p-3 font-mono text-sm bg-gray-50 dark:bg-gray-900 rounded-md overflow-auto whitespace-pre-wrap break-words pointer-events-none"
+                            aria-hidden="true"
+                        >
+                            <code dangerouslySetInnerHTML={{ __html: highlightedQuery + '\n' }} />
+                        </pre>
+                        <textarea
+                            ref={editorRef}
+                            value={query}
+                            onChange={(e) => onQueryChange(e.target.value)}
+                            onScroll={handleScroll}
+                            className="absolute inset-0 m-0 p-3 font-mono text-sm text-transparent bg-transparent border-transparent rounded-md caret-white focus:outline-none resize-none"
+                            spellCheck="false"
+                            aria-label="Query editor"
+                        />
+                    </div>
+                )}
             </div>
-            <div className="flex-shrink-0 flex items-center justify-between p-4 border-t border-gray-200 dark:border-gray-700">
+            <div className={`flex-shrink-0 flex items-center justify-between p-4 ${isRestApi ? 'mt-4 bg-white dark:bg-gray-800 rounded-xl' : 'border-t border-gray-200 dark:border-gray-700'}`}>
                 <div className="flex items-center space-x-4">
                     <label htmlFor="dataSourceSelect" className="text-sm font-medium">{t('queryEditor.connectsTo')}</label>
                     <select

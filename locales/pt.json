@@ -1,3 +1,4 @@
+
 {
   "sidebar": {
     "title": "Analytics Builder",
@@ -192,7 +193,8 @@
       "sql": "SQL",
       "mongo": "MongoDB",
       "redis": "Redis",
-      "supabase": "Supabase"
+      "supabase": "Supabase",
+      "json": "REST API"
     },
     "summaryRow": {
       "title": "Linha de Resumo",
@@ -205,6 +207,17 @@
     },
     "dataContext": "Contexto de Dados",
     "dataContextDesc": "As consultas estão sendo executadas com o contexto: {context}. Você pode usá-los como variáveis (ex: `{{department}}`)."
+  },
+  "restBuilder": {
+    "method": "Método",
+    "endpoint": "Endpoint / Caminho",
+    "headers": "Cabeçalhos",
+    "addHeader": "Adicionar Cabeçalho",
+    "noHeaders": "Nenhum cabeçalho definido.",
+    "params": "Parâmetros de Consulta (Query String)",
+    "addParam": "Adicionar Parâmetro",
+    "noParams": "Nenhum parâmetro definido.",
+    "body": "Corpo da Requisição (JSON)"
   },
   "settings": {
     "title": "Configurações",
@@ -229,6 +242,7 @@
     "connectionName": "Nome da Conexão",
     "databaseType": "Tipo de Banco de Dados",
     "connectionString": "String de Conexão",
+    "baseUrl": "URL Base do Host",
     "prodDbPlaceholder": "ex: Banco de Dados Produção",
     "addFormErrorTitle": "Erro no Formulário",
     "addFormError": "Por favor, preencha todos os campos para adicionar uma fonte de dados.",
@@ -247,7 +261,8 @@
       "Redis": "Redis",
       "MongoDB": "MongoDB",
       "CosmosDB": "CosmosDB",
-      "Supabase": "Supabase"
+      "Supabase": "Supabase",
+      "REST API": "REST API (JSON)"
     },
     "personalize": "Personalizar",
     "personalizeDesc": "Personalize a aparência dos seus painéis.",

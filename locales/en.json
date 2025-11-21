@@ -1,3 +1,4 @@
+
 {
   "sidebar": {
     "title": "Analytics Builder",
@@ -192,7 +193,8 @@
       "sql": "SQL",
       "mongo": "MongoDB",
       "redis": "Redis",
-      "supabase": "Supabase"
+      "supabase": "Supabase",
+      "json": "REST API"
     },
     "summaryRow": {
       "title": "Summary Row",
@@ -205,6 +207,17 @@
     },
     "dataContext": "Data Context",
     "dataContextDesc": "Queries are running with the context: {context}. You can use these as variables (e.g., `{{department}}`)."
+  },
+  "restBuilder": {
+    "method": "Method",
+    "endpoint": "Endpoint / Path",
+    "headers": "Headers",
+    "addHeader": "Add Header",
+    "noHeaders": "No headers defined.",
+    "params": "Query Parameters",
+    "addParam": "Add Parameter",
+    "noParams": "No parameters defined.",
+    "body": "Request Body (JSON)"
   },
   "settings": {
     "title": "Settings",
@@ -229,6 +242,7 @@
     "connectionName": "Connection Name",
     "databaseType": "Database Type",
     "connectionString": "Connection String",
+    "baseUrl": "Host Base URL",
     "prodDbPlaceholder": "e.g. Production Database",
     "addFormErrorTitle": "Form Error",
     "addFormError": "Please fill out all fields to add a data source.",
@@ -247,7 +261,8 @@
       "Redis": "Redis",
       "MongoDB": "MongoDB",
       "CosmosDB": "CosmosDB",
-      "Supabase": "Supabase"
+      "Supabase": "Supabase",
+      "REST API": "REST API (JSON)"
     },
     "personalize": "Customize",
     "personalizeDesc": "Customize the look and feel of your dashboards.",
