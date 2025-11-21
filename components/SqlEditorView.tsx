@@ -63,6 +63,8 @@ const SqlEditorView: React.FC<SqlEditorViewProps> = ({ editingCardId, onFinishEd
     
     // Ref to track the previous card ID to prevent re-initializing the form on unrelated re-renders.
     const prevCardIdRef = useRef<string | null>(null);
+    // Ref to track if we have already initialized the "new card" state to prevent resetting on every render.
+    const hasInitializedNewCardRef = useRef(false);
 
     const activeDashboard = useMemo(() => dashboards.find(d => d.id === activeDashboardId), [dashboards, activeDashboardId]);
     const activeDashboardScriptLibrary = useMemo(() => activeDashboard?.scriptLibrary || '', [activeDashboard]);
@@ -90,6 +92,7 @@ const SqlEditorView: React.FC<SqlEditorViewProps> = ({ editingCardId, onFinishEd
     
     useEffect(() => {
         setIsInitialLoadDone(false);
+        hasInitializedNewCardRef.current = false;
     }, [cardToEdit?.id]);
 
     const handleApplyPostProcessing = useCallback((rawResult: QueryResult | null, script: string) => {
@@ -190,6 +193,7 @@ const SqlEditorView: React.FC<SqlEditorViewProps> = ({ editingCardId, onFinishEd
 
     useEffect(() => {
         if (cardToEdit && dataSources.length > 0) {
+            hasInitializedNewCardRef.current = false; // Reset this so next time we switch to new, it reinits.
             const hasCardChanged = prevCardIdRef.current !== cardToEdit.id;
 
             // Only reset the form fields if the card has actually changed.
@@ -216,15 +220,20 @@ const SqlEditorView: React.FC<SqlEditorViewProps> = ({ editingCardId, onFinishEd
             prevCardIdRef.current = cardToEdit.id;
 
         } else {
-            // This block runs when the editor is closed or no card is selected.
-            // Reset state for a clean slate.
-            setPostProcessingScript('');
-            setShowPostProcessing(false);
-            setProcessedResult(null);
-            setProcessingError(null);
-            setProcessingLogs([]);
-            setIsInitialLoadDone(true);
-            prevCardIdRef.current = null; // Reset the ref.
+            // This block runs when the editor is closed or no card is selected (New Card mode).
+            // We only want to reset state if we haven't initialized the "New Card" view yet.
+            // This prevents state from resetting when internal dependencies (like executeQuery) change due to user interaction (e.g. toggling checkboxes).
+            if (!hasInitializedNewCardRef.current) {
+                setPostProcessingScript('');
+                setShowPostProcessing(false);
+                setProcessedResult(null);
+                setProcessingError(null);
+                setProcessingLogs([]);
+                setIsInitialLoadDone(true);
+                prevCardIdRef.current = null; // Reset the ref.
+                
+                hasInitializedNewCardRef.current = true;
+            }
         }
     }, [cardToEdit, dataSources, executeQuery]);
     

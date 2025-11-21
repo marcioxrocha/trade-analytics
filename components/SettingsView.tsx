@@ -8,7 +8,7 @@ import SaveStatusIndicator from './SaveStatusIndicator';
 import Modal from './Modal';
 import DataSourceExportImportModal from './DataSourceExportImportModal';
 
-const SettingsCard: React.FC<{ title: string; description: string; children?: React.ReactNode }> = ({ title, description, children, rowSpan }) => (
+const SettingsCard: React.FC<{ title: string; description: string; children?: React.ReactNode; rowSpan?: string | number }> = ({ title, description, children, rowSpan }) => (
     <div className={`bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg row-span-${rowSpan?rowSpan:1}`}>
         <h3 className="text-xl font-bold text-gray-800 dark:text-white">{title}</h3>
         <p className="text-gray-500 dark:text-gray-400 mt-1 mb-4">{description}</p>

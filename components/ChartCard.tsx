@@ -1,5 +1,4 @@
 
-
 import React, { useMemo, useState } from 'react';
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
@@ -136,17 +135,21 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
             <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={processedData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#9ca3af" strokeOpacity={0.4} />
+                {/* Render Bar first so it stays behind axis lines */}
+                <Bar dataKey={card.dataKey} fill={brandColor} />
+                {/* Reference line creates a solid baseline on top of bar bottoms */}
+                <ReferenceLine y={0} stroke="#6b7280" strokeWidth={1} />
                 <XAxis 
                   dataKey={card.categoryKey} 
                   tickFormatter={xAxisTickFormatter}
-                  type={isTimeSeries ? 'number' : 'category'}
-                  scale={isTimeSeries ? 'time' : 'auto'}
-                  domain={isTimeSeries ? ['dataMin', 'dataMax'] : undefined}
-                  // Fix: Changed interval value from 'auto' to 0 for time series to fix TypeScript error.
-                  interval={isTimeSeries ? 0 : undefined}
+                  // ALWAYS use category for Bar charts. This ensures discrete bars that don't
+                  // climb/overlap the axis and provides correct tooltip selection behavior.
+                  type="category"
+                  minTickGap={30}
                 />
-                <YAxis tickFormatter={yAxisTickFormatter} />
+                <YAxis tickFormatter={yAxisTickFormatter} domain={[0, 'auto']} />
                 <Tooltip
+                    cursor={{ fill: 'transparent' }} // Remove default hover rect which can look messy
                     labelFormatter={xAxisTickFormatter}
                     formatter={tooltipFormatter}
                     contentStyle={{
@@ -157,8 +160,6 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
                     wrapperStyle={{ zIndex: 999 }}
                 />
                 <Legend />
-                <ReferenceLine y={0} stroke="#6b7280" strokeWidth={1} />
-                <Bar dataKey={card.dataKey} fill={brandColor} />
                 </BarChart>
             </ResponsiveContainer>
             );
@@ -173,8 +174,8 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
                     type={isTimeSeries ? 'number' : 'category'}
                     scale={isTimeSeries ? 'time' : 'auto'}
                     domain={isTimeSeries ? ['dataMin', 'dataMax'] : undefined}
-                    // Fix: Changed interval value from 'auto' to 0 for time series to fix TypeScript error.
-                    interval={isTimeSeries ? 0 : undefined}
+                    minTickGap={30}
+                    interval="preserveStartEnd"
                 />
                 <YAxis tickFormatter={yAxisTickFormatter} />
                 <Tooltip
@@ -204,8 +205,8 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
                     type={isTimeSeries ? 'number' : 'category'}
                     scale={isTimeSeries ? 'time' : 'auto'}
                     domain={isTimeSeries ? ['dataMin', 'dataMax'] : undefined}
-                    // Fix: Changed interval value from 'auto' to 0 for time series to fix TypeScript error.
-                    interval={isTimeSeries ? 0 : undefined}
+                    minTickGap={30}
+                    interval="preserveStartEnd"
                 />
                 <YAxis tickFormatter={yAxisTickFormatter} />
                 <Tooltip
@@ -260,8 +261,8 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
                     type={isTimeSeries ? 'number' : 'category'}
                     scale={isTimeSeries ? 'time' : 'auto'}
                     domain={isTimeSeries ? ['dataMin', 'dataMax'] : undefined}
-                    // Fix: Changed interval value from 'auto' to 0 for time series to fix TypeScript error.
-                    interval={isTimeSeries ? 0 : undefined}
+                    minTickGap={30}
+                    interval="preserveStartEnd"
                 />
                 <YAxis tickFormatter={yAxisTickFormatter} />
                 <Tooltip
