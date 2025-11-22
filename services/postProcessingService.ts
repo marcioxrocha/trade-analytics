@@ -1,12 +1,15 @@
+
 import { QueryResult } from '../types';
 
 /**
  * Executes a user-provided JavaScript script to transform an array of data objects.
  * The script is executed in a sandboxed environment using the Function constructor.
  * It has access to the `data` array and any variables passed in the context.
- * @param data The initial array of data objects from the query result.
+ * 
+ * @param data The initial array of data objects from the primary query result.
  * @param script The JavaScript code to execute.
  * @param context A key-value object of variables to be made available to the script.
+ *                Note: 'datasets' is injected here, containing an array of all query results.
  * @param libraryScript An optional string of JS functions to prepend to the user script.
  * @returns An object containing the transformed array of data objects and any console logs.
  * @throws An object containing the error and any logs captured before the error if the script fails.

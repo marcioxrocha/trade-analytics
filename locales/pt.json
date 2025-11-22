@@ -132,7 +132,7 @@
     "connectsTo": "Conectar a:",
     "selectDataSourcePlaceholder": "Selecione...",
     "primaryDatabase": "Banco de Dados Primário",
-    "runQuery": "Executar Consulta",
+    "runQuery": "Executar Consultas",
     "running": "Executando...",
     "results": "Resultados",
     "createVisualization": "Criar Visualização",
@@ -160,7 +160,7 @@
     "addToDashboard": "Adicionar ao Painel",
     "updateCard": "Atualizar Cartão",
     "preview": "Pré-visualização",
-    "noDataSourceError": "Por favor, selecione uma fonte de dados antes de executar uma consulta.",
+    "noDataSourceError": "Por favor, selecione uma fonte de dados para a consulta atual antes de executar.",
     "runQueryToEditColumns": "Execute a consulta para ver e alterar as colunas disponíveis.",
     "noActiveDashboardError": "Nenhum painel ativo selecionado. Por favor, crie ou selecione um painel primeiro.",
     "availableVars": "Variáveis Disponíveis",
@@ -174,10 +174,12 @@
     "aiUseQueryButton": "Usar esta Consulta",
     "aiError": "Ocorreu um erro ao gerar a consulta. Por favor, verifique sua conexão ou tente novamente.",
     "selectAxisPlaceholder": "Selecione uma coluna...",
+    "queryTab": "Consulta {index}",
+    "addQuery": "Nova Consulta",
     "postProcessing": {
       "enable": "Habilitar Pós-processamento",
       "title": "Pós-processamento (JavaScript)",
-      "description": "Escreva código JS para transformar os resultados. Os dados brutos estão disponíveis como a variável <code>data</code> (um array de objetos). As variáveis do painel também estão disponíveis pelo nome (ex: <code>sales_target</code>). Seu script deve retornar um <b>novo array de objetos</b>.",
+      "description": "Escreva código JS para transformar os resultados. <br/>- <code>data</code>: Array de objetos da Consulta 1 (Primary).<br/>- <code>datasets</code>: Array contendo todos os resultados das consultas (ex: <code>datasets[0]</code>, <code>datasets[1]</code>).<br/>Variáveis do painel também estão disponíveis. Seu script deve retornar um <b>novo array de objetos</b>.",
       "logsTitle": "Logs do Console"
     },
     "types": {

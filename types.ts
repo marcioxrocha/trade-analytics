@@ -93,6 +93,11 @@ export interface TableConfig {
   summaryColumns?: Record<string, AggregationType>;
 }
 
+export interface QueryDefinition {
+    id: string;
+    dataSourceId: string;
+    query: string;
+}
 
 export interface ChartCardData {
   id: string;
@@ -100,10 +105,17 @@ export interface ChartCardData {
   title: string;
   description?: string;
   type: ChartType;
+  
+  // Legacy/Primary Query Fields (kept for backward compatibility)
   query: string;
+  dataSourceId: string;
+  
+  // Multi-query support
+  queries?: QueryDefinition[]; 
+
   queryLanguage: QueryLanguage;
   postProcessingScript?: string; // JavaScript code to transform data after query
-  dataSourceId: string;
+  
   data?: Record<string, any>[]; // Data is now optional, loaded at runtime
   columnTypes?: Record<string, ColumnDataType>; // Type definition for each column
   tableConfig?: TableConfig; // Configuration specific to table charts

@@ -1,8 +1,10 @@
-import { ChartCardData, DataSource, Variable, QueryResult, DashboardFormattingSettings } from '../types';
+
+import { ChartCardData, DataSource, Variable, QueryResult, DashboardFormattingSettings, QueryDefinition } from '../types';
 import { getDriver } from '../drivers/driverFactory';
-import { removeSqlLimits, substituteVariablesInQuery } from './queryService';
+import { removeSqlLimits, substituteVariablesInQuery, resolveAllVariables } from './queryService';
 import { ApiConfig } from './../types';
 import { formatValue } from './formattingService';
+import { executePostProcessingScript } from './postProcessingService';
 
 interface ExportOptions {
     card: ChartCardData;
@@ -12,6 +14,7 @@ interface ExportOptions {
     formattingSettings: DashboardFormattingSettings;
     department?: string;
     owner?: string;
+    scriptLibrary?: string;
 }
 
 /**
@@ -80,44 +83,88 @@ const generateAndDownloadExcel = (data: Record<string, any>[], fileName: string,
 
 /**
  * Fetches the full dataset for a chart card, removes any row limits from the query,
- * and exports the result to an Excel (.xls) file.
- * @param {ExportOptions} options - The card, data sources, variables, and apiConfig needed to execute the query.
+ * applies post-processing, and exports the result to an Excel (.xls) file.
  */
-export const exportToExcel = async ({ card, dataSources, variables, apiConfig, formattingSettings, department, owner }: ExportOptions): Promise<void> => {
-    const dataSource = dataSources.find(ds => ds.id === card.dataSourceId);
-    if (!dataSource) {
-        throw new Error("Data source for this card could not be found.");
+export const exportToExcel = async ({ card, dataSources, variables, apiConfig, formattingSettings, department, owner, scriptLibrary }: ExportOptions): Promise<void> => {
+    
+    // Determine queries to run
+    const queriesToRun: QueryDefinition[] = (card.queries && card.queries.length > 0)
+        ? card.queries
+        : [{ id: 'legacy', dataSourceId: card.dataSourceId, query: card.query }];
+
+    const validQueries = queriesToRun.filter(q => !!q.dataSourceId);
+
+    if (validQueries.length === 0) {
+        throw new Error("No valid queries configured for this card.");
     }
 
-    // 1. Prepare the query: remove limits and substitute variables.
-    const unlimitedQuery = removeSqlLimits(card.query);
-    const finalQuery = substituteVariablesInQuery(unlimitedQuery, variables);
+    let results: QueryResult[] = [];
 
-    // 2. Execute the query.
-    let result: QueryResult;
     try {
-        const driver = getDriver(dataSource);
-        result = await driver.executeQuery({
-            dataSource,
-            query: finalQuery,
-        }, apiConfig, { department, owner });
+        results = await Promise.all(validQueries.map(async (q) => {
+            const dataSource = dataSources.find(ds => ds.id === q.dataSourceId);
+            if (!dataSource) throw new Error("Data source not found.");
+
+            // 1. Prepare the query: remove limits and substitute variables.
+            const unlimitedQuery = removeSqlLimits(q.query);
+            const finalQuery = substituteVariablesInQuery(unlimitedQuery, variables, scriptLibrary);
+
+            const driver = getDriver(dataSource);
+            return await driver.executeQuery({
+                dataSource,
+                query: finalQuery,
+            }, apiConfig, { department, owner });
+        }));
     } catch (e) {
         throw new Error(`Failed to execute query for export: ${(e as Error).message}`);
     }
 
-    // 3. Transform and format the data.
-    const transformedData = result.rows.map(row => {
+    // 2. Transform all results for post-processing
+    const allDatasets = results.map(res => res.rows.map(row => {
         const obj: { [key: string]: any } = {};
-        result.columns.forEach((col, index) => {
-            const rawValue = row[index];
+        res.columns.forEach((col, index) => {
+            obj[col] = row[index];
+        });
+        return obj;
+    }));
+
+    let finalData = allDatasets[0] || [];
+
+    // 3. Apply Post-Processing if enabled
+    if (card.postProcessingScript) {
+        try {
+            const resolvedVars = resolveAllVariables(variables, scriptLibrary);
+            const { processedData } = executePostProcessingScript(
+                finalData, 
+                card.postProcessingScript, 
+                { ...resolvedVars, datasets: allDatasets }, 
+                scriptLibrary || ''
+            );
+            finalData = processedData;
+        } catch (e) {
+            const errorMsg = (e as any).error ? (e as any).error.message : String(e);
+            throw new Error(`Export failed during post-processing: ${errorMsg}`);
+        }
+    }
+
+    if (finalData.length === 0) {
+        throw new Error("Resulting dataset is empty.");
+    }
+
+    // 4. Format values based on column types (infer if necessary)
+    const columns = Object.keys(finalData[0]);
+    const formattedData = finalData.map(row => {
+        const obj: { [key: string]: any } = {};
+        columns.forEach(col => {
+            const rawValue = row[col];
             const columnType = card.columnTypes?.[col];
             obj[col] = formatValue(rawValue, columnType, formattingSettings);
         });
         return obj;
     });
 
-    // 4. Generate and download the Excel file.
+    // 5. Generate and download the Excel file.
     const titleWithoutHtml = card.title.replace(/<[^>]*>/g, '');
-    const finalFileName = substituteVariablesInQuery(titleWithoutHtml, variables);
-    generateAndDownloadExcel(transformedData, finalFileName, finalFileName);
+    const finalFileName = substituteVariablesInQuery(titleWithoutHtml, variables, scriptLibrary);
+    generateAndDownloadExcel(formattedData, finalFileName, finalFileName);
 };

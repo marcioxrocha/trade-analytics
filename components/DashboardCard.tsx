@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ChartCardData, QueryResult, Variable, ChartType } from '../types';
+import { ChartCardData, QueryResult, Variable, ChartType, QueryDefinition } from '../types';
 import { getDriver } from '../drivers/driverFactory';
 import { useAppContext } from '../contexts/AppContext';
 import ChartCard from './ChartCard';
@@ -78,34 +78,56 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
       setError(null);
       setData(null);
       
-      const dataSource = dataSources.find(ds => ds.id === cardConfig.dataSourceId);
-      if (!dataSource) {
-        setError(t('dashboard.cardErrorDataSourceNotFound'));
+      // Determine queries to run. Fallback to legacy if 'queries' array is missing.
+      const queriesToRun: QueryDefinition[] = (cardConfig.queries && cardConfig.queries.length > 0)
+        ? cardConfig.queries
+        : [{ id: 'legacy', dataSourceId: cardConfig.dataSourceId, query: cardConfig.query }];
+
+      // Filter out invalid queries (e.g. no data source selected)
+      const validQueries = queriesToRun.filter(q => !!q.dataSourceId);
+
+      if (validQueries.length === 0) {
+        // Only show error if it's not a spacer and supposed to have data
+        if (cardConfig.type !== ChartType.SPACER) {
+             setError(t('dashboard.cardErrorDataSourceNotFound'));
+        }
         setIsLoading(false);
         return;
       }
 
       try {
-        const driver = getDriver(dataSource);
-        const finalQuery = substituteVariablesInQuery(cardConfig.query, cardVariables, scriptLibrary);
+        const results = await Promise.all(validQueries.map(async (q) => {
+            const dataSource = dataSources.find(ds => ds.id === q.dataSourceId);
+            if (!dataSource) throw new Error(`Data source not found for query.`);
+            
+            const driver = getDriver(dataSource);
+            const finalQuery = substituteVariablesInQuery(q.query, cardVariables, scriptLibrary);
+            return await driver.executeQuery({ dataSource, query: finalQuery }, apiConfig, { department, owner });
+        }));
 
-        const result: QueryResult = await driver.executeQuery({
-          dataSource,
-          query: finalQuery,
-        }, apiConfig, { department, owner });
+        // Prepare data for post-processing
+        const primaryResult = results[0];
         
-        const transformedData = result.rows.map(row => {
-          const obj: { [key: string]: any } = {};
-          result.columns.forEach((col, index) => {
-            obj[col] = row[index];
-          });
-          return obj;
-        });
-        
-        let finalData = transformedData;
+        // Convert all results to object arrays for the 'datasets' context
+        const allDatasets = results.map(res => res.rows.map(row => {
+            const obj: { [key: string]: any } = {};
+            res.columns.forEach((col, index) => {
+                obj[col] = row[index];
+            });
+            return obj;
+        }));
+
+        let finalData = allDatasets[0]; // Default to first dataset
+
         if (cardConfig.postProcessingScript) {
             try {
-                const { processedData } = executePostProcessingScript(transformedData, cardConfig.postProcessingScript, resolvedCardVariables, scriptLibrary);
+                // Pass 'datasets' in context
+                const { processedData } = executePostProcessingScript(
+                    finalData, // 'data' variable gets first dataset
+                    cardConfig.postProcessingScript, 
+                    { ...resolvedCardVariables, datasets: allDatasets }, 
+                    scriptLibrary
+                );
                 finalData = processedData;
             } catch (e) {
                 const scriptError = (e as any).error || e;
@@ -117,7 +139,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
                 }
                 setError(`Post-processing script failed: \n${errorMessage}`);
                 setIsLoading(false);
-                return; // Stop execution if script fails
+                return; 
             }
         }
         setData(finalData);
@@ -132,7 +154,6 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
       return;
     }
     
-    // Do not attempt to fetch data for spacer cards.
     if (cardConfig.type === ChartType.SPACER) {
         setIsLoading(false);
         return;
@@ -161,6 +182,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
             formattingSettings: formattingSettings,
             department,
             owner,
+            scriptLibrary,
         });
         hideModal(); 
     } catch (err) {
@@ -180,13 +202,8 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
   };
   
   const colSpanClass = `md:col-span-${Math.min(cardConfig.gridSpan, 4)}`;
-  
-  // A more robust way to determine the intended row span, defaulting KPI to 1 and others to 2.
   const rowSpanValue = cardConfig.gridRowSpan || (cardConfig.type === 'kpi' ? 1 : 2);
   const rowSpanClass = `row-span-${Math.min(rowSpanValue, 4)}`;
-  
-  // Set a minimum height that corresponds to the grid row definition to prevent collapsing.
-  // This is more stable than vh units and is tailored to the card type.
   const minHeightClass = rowSpanValue > 1 ? 'min-h-[340px]' : 'min-h-[160px]';
 
   const interactionClasses = [

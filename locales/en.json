@@ -132,7 +132,7 @@
     "connectsTo": "Connects to:",
     "selectDataSourcePlaceholder": "Select...",
     "primaryDatabase": "Primary Database",
-    "runQuery": "Run Query",
+    "runQuery": "Run Queries",
     "running": "Running...",
     "results": "Results",
     "createVisualization": "Create Visualization",
@@ -160,7 +160,7 @@
     "addToDashboard": "Add to Dashboard",
     "updateCard": "Update Card",
     "preview": "Preview",
-    "noDataSourceError": "Please select a data source before running a query.",
+    "noDataSourceError": "Please select a data source for the current query tab before running.",
     "runQueryToEditColumns": "Run the query to see and change available columns.",
     "noActiveDashboardError": "No active dashboard selected. Please create or select a dashboard first.",
     "availableVars": "Available Variables",
@@ -174,10 +174,12 @@
     "aiUseQueryButton": "Use This Query",
     "aiError": "An error occurred while generating the query. Please check your connection or try again.",
     "selectAxisPlaceholder": "Select a column...",
+    "queryTab": "Query {index}",
+    "addQuery": "New Query",
     "postProcessing": {
       "enable": "Enable Post-Processing",
       "title": "Post-Processing (JavaScript)",
-      "description": "Write JS code to transform results. Raw data is available as the <code>data</code> variable (an array of objects). Dashboard variables are also available by name (e.g., <code>sales_target</code>). Your script must return a <b>new array of objects</b>.",
+      "description": "Write JS code to transform results. <br/>- <code>data</code>: Array of objects from Query 1 (Primary).<br/>- <code>datasets</code>: Array containing all query results (e.g., <code>datasets[0]</code>, <code>datasets[1]</code>).<br/>Dashboard variables are also available. Your script must return a <b>new array of objects</b>.",
       "logsTitle": "Console Logs"
     },
      "types": {
