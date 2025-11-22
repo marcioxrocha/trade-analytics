@@ -7,5 +7,6 @@ export const environments: any = {
         ANALYTICS_BUILDER_MAIN_FIREBASE_AUTH_DOMAIN: "trade-analytics-68ed4.firebaseapp.com", 
         ANALYTICS_BUILDER_MAIN_FIREBASE_PROJECT_ID: "trade-analytics-68ed4", 
         ANALYTICS_BUILDER_MAIN_FIREBASE_RECAPTCHA_SITE_KEY: "6LchEAksAAAAADHFUo9T34NcN_mDOy1mghwmsP33", 
+        ANALYTICS_BUILDER_MAIN_LOCAL_DATA_SECRET: "b644eb47-cfbe-4ddc-b12a-9898e1273459", 
 
 }

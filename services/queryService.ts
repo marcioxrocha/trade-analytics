@@ -1,4 +1,5 @@
 import { Variable } from '../types';
+import { imports } from './configService';
 
 /**
  * Safely evaluates a JavaScript expression string within a given context.
@@ -9,6 +10,9 @@ import { Variable } from '../types';
  */
 function evaluateExpression(expression: string, context: Record<string, any>, libraryScript: string = ''): any {
   try {
+    const moment = imports.moment;
+    context = {...context, moment};
+
     const contextKeys = Object.keys(context);
     const contextValues = Object.values(context);
     
@@ -103,9 +107,9 @@ export const substituteVariablesInQuery = (sql: string, variables: Variable[], l
     let finalSql = sql;
     
     const resolvedValues = resolveAllVariables(variables, libraryScript);
-    
-    // Substitute all resolved values (both plain and evaluated) into the query.
-    finalSql = finalSql.replace(/\{\{([a-zA-Z0-9_().\s'"]+)\}\}/g, (match, expression) => {
+//ALTERACAO MARCIO    
+    //finalSql = finalSql.replace(/\{\{([a-zA-Z0-9_().\s'"]+)\}\}/g, (match, expression) => {
+    finalSql = finalSql.replace(/\{\{([^\}]+)\}\}/g, (match, expression) => {
         // Now, we treat the content inside {{...}} as a potential expression itself,
         // which could be a simple variable name or a function call from the library.
         const evaluatedValue = evaluateExpression(expression, resolvedValues, libraryScript);

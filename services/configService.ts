@@ -128,11 +128,14 @@ const migrateFromLocalStorageToIndexedDB = async (): Promise<void> => {
 
 const SUPABASE_TABLE_NAME = 'analytics_builder_configs';
 
+export const imports:any = {};
+
 const createSupabaseClient = async (apiConfig: ApiConfig) => {
     if (!apiConfig.CONFIG_SUPABASE_URL || !apiConfig.CONFIG_SUPABASE_KEY) {
         return null;
     }
     const { createClient } = await import('@supabase/supabase-js');
+    imports.moment = (await import('moment')).default;
     return createClient(apiConfig.CONFIG_SUPABASE_URL, apiConfig.CONFIG_SUPABASE_KEY);
 };
 

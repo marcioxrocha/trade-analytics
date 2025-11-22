@@ -1,4 +1,4 @@
-import { openDB, IDBPDatabase } from 'https://cdn.jsdelivr.net/npm/idb@7/+esm';
+import { openDB, IDBPDatabase } from 'idb';
 
 const DB_NAME = 'analytics-builder-db';
 const STORE_NAME = 'keyval';

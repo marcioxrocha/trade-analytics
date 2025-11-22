@@ -1,5 +1,5 @@
-
 import { QueryResult } from '../types';
+import { imports } from './configService';
 
 /**
  * Executes a user-provided JavaScript script to transform an array of data objects.
@@ -24,6 +24,7 @@ export function executePostProcessingScript(
         return { processedData: data, logs: [] };
     }
     
+    const moment = imports.moment;
     const logs: string[] = [];
     const customConsole = {
         log: (...args: any[]) => {
@@ -44,7 +45,7 @@ export function executePostProcessingScript(
         }
     };
 
-    const executionContext = { ...context, console: customConsole };
+    const executionContext = { ...context, console: customConsole, moment };
     const contextKeys = Object.keys(executionContext);
     const contextValues = Object.values(executionContext);
     
