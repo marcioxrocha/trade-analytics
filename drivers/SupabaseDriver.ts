@@ -1,58 +1,13 @@
-// --- BACKEND IMPLEMENTATION NOTE ---
-// This driver sends a Supabase query to a backend proxy.
-// The backend MUST use the '@supabase/supabase-js' npm package to create a client,
-// execute the query string received from the frontend, and return the result.
-// The query is a JavaScript string (e.g., "from('orders').select('*')")
-// and must be evaluated securely on the backend.
-//
-// Example Backend Logic (in an Express.js route):
-//
-// import { createClient } from '@supabase/supabase-js';
-//
-// async function handleQuery(req, res) {
-//   const { connectionString, query } = req.body;
-//   try {
-//     // 1. Parse connection details
-//     const { url, key } = JSON.parse(connectionString);
-//     if (!url || !key) {
-//       return res.status(400).send('Supabase URL and Key are required.');
-//     }
-//
-//     // 2. Create Supabase client
-//     const supabase = createClient(url, key);
-//
-//     // 3. SECURELY evaluate the query string.
-//     // Using the Function constructor is safer than eval(). The query string
-//     // will be executed against the 'supabase' client instance.
-//     const queryFunction = new Function('supabase', `return supabase.${query}`);
-//     const { data, error } = await queryFunction(supabase);
-//
-//     if (error) {
-//       throw new Error(error.message);
-//     }
-//
-//     // 4. Transform results into the standard QueryResult format
-//     if (!data || data.length === 0) {
-//       return res.json({ columns: [], rows: [] });
-//     }
-//     const columns = Object.keys(data[0]);
-//     const rows = data.map(doc => columns.map(col => doc[col]));
-//
-//     res.json({ columns, rows });
-//
-//   } catch (err) {
-//     console.error('Supabase query error:', err);
-//     res.status(500).send(err.message);
-//   }
-// }
-
+import { imports } from '@/services/configService';
 import { QueryRequest, QueryResult, RequestContext, ApiConfig } from '../types';
 import { IDatabaseDriver } from './IDatabaseDriver';
 
 export class SupabaseDriver implements IDatabaseDriver {
   async executeQuery(request: QueryRequest, apiConfig: ApiConfig, context?: RequestContext): Promise<QueryResult> {
-    
     let connDetails;
+
+    const moment = imports.moment;
+    
     try {
         connDetails = JSON.parse(request.dataSource.connectionString);
         if (!connDetails.url || !connDetails.key) {
@@ -84,8 +39,9 @@ export class SupabaseDriver implements IDatabaseDriver {
             let keepFetching = true;
 
             if(cleanQuery.indexOf('.limit(')>0){
-                const queryFunction = new Function('supabase', `return supabase.${cleanQuery}`);
-                const { data, error } = await queryFunction(supabase);
+                const queryFunction = new Function('supabase', 'moment',`return supabase.${cleanQuery}`);
+
+                const { data, error } = await queryFunction(supabase, moment);
 
                 if (error) {
                     throw new Error(error.message);
@@ -107,8 +63,8 @@ export class SupabaseDriver implements IDatabaseDriver {
                 // Append the range to the user's query
                 const paginatedQuery = `${cleanQuery}.range(${from}, ${to})`;
                 
-                const queryFunction = new Function('supabase', `return supabase.${paginatedQuery}`);
-                const { data, error } = await queryFunction(supabase);
+                const queryFunction = new Function('supabase', 'moment',`return supabase.${paginatedQuery}`);
+                const { data, error } = await queryFunction(supabase, moment);
 
                 if (error) {
                     throw new Error(error.message);
