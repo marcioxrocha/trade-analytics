@@ -529,7 +529,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
                 </>
             )}
         </div>
-      <div className="flex-grow flex items-center justify-center min-h-0 relative z-10">
+      <div className="flex-grow flex items-center justify-center min-h-0 relative">
         {renderContent()}
       </div>
     </div>
