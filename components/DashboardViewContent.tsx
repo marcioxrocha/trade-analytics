@@ -317,7 +317,7 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
         ];
         if (allowDashboardManagement) {
              items.push(
-                { view: 'query-editor', labelKey: 'sidebar.queryEditor', css: 'min-w-32' },
+                { view: 'query-editor', labelKey: 'sidebar.queryEditor', css: 'min-w-40' },
                 { view: 'script-library', labelKey: 'sidebar.scriptLibrary', css: 'min-w-40' }
              );
         }
