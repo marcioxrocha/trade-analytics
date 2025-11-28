@@ -312,13 +312,13 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
     // --- Render Helpers ---
 
     const navItems = useMemo(() => {
-        const items: { view: View; labelKey: string }[] = [
+        const items: { view: View; labelKey: string; css?: string }[] = [
             { view: 'dashboard', labelKey: 'sidebar.dashboards' },
         ];
         if (allowDashboardManagement) {
              items.push(
-                { view: 'query-editor', labelKey: 'sidebar.queryEditor' },
-                { view: 'script-library', labelKey: 'sidebar.scriptLibrary' }
+                { view: 'query-editor', labelKey: 'sidebar.queryEditor', css: 'min-w-32' },
+                { view: 'script-library', labelKey: 'sidebar.scriptLibrary', css: 'min-w-40' }
              );
         }
         if (allowDashboardManagement || allowDataSourceManagement) {
@@ -537,7 +537,7 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
                             <button
                                 key={item.view}
                                 onClick={() => item.view === 'query-editor' ? handleAddCard() : handleNavigate(item.view)}
-                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${currentView === item.view ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-700/50'}`}
+                                className={`px-3 py-1.5 ${item.css ? item.css : ''} rounded-md text-sm font-medium transition-colors ${currentView === item.view ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-700/50'}`}
                             >
                                 {t(item.labelKey)}
                             </button>
