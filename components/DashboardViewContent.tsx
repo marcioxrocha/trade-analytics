@@ -532,7 +532,7 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
                     </div>
 
                     {/* Navigation Sub-bar */}
-                    <nav className="flex items-center gap-1 sm:gap-2 p-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                    <nav className="flex overflow-x-auto custom-scrollbar items-center gap-1 sm:gap-2 p-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                         {navItems.map(item => (
                             <button
                                 key={item.view}
