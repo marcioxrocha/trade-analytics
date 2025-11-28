@@ -172,6 +172,25 @@ export const setConfigLocal = async <T>(key: string, value: T): Promise<void> =>
 }
 
 /**
+ * Retrieves a configuration value strictly from local storage (IndexedDB).
+ * @param key The key of the configuration to fetch.
+ * @returns A promise that resolves with the configuration value, or null if not found.
+ */
+export const getConfigLocal = async <T>(key: string): Promise<T | null> => {
+    const storedValue = await idbService.get<string>(key);
+    if (!storedValue) return null;
+
+    try {
+        const secret = await getOrCreateSecret();
+        const decryptedString = decrypt(storedValue, secret);
+        return JSON.parse(decryptedString) as T;
+    } catch(e) {
+        console.error(`Failed to decrypt/parse key ${key} from IndexedDB`, e);
+        return null;
+    }
+};
+
+/**
  * Deletes a configuration value locally from IndexedDB.
  * @param key The key of the configuration to delete.
  */
@@ -390,17 +409,7 @@ export const getConfig = async <T>(key: string, apiConfig: ApiConfig, context?: 
     }
     
     // 3. Fallback to IndexedDB.
-    const storedValue = await idbService.get<string>(key);
-    if (!storedValue) return null;
-
-    try {
-        const secret = await getOrCreateSecret();
-        const decryptedString = decrypt(storedValue, secret);
-        return JSON.parse(decryptedString) as T;
-    } catch(e) {
-        console.error(`Failed to decrypt/parse key ${key} from IndexedDB`, e);
-        return null;
-    }
+    return getConfigLocal<T>(key);
 };
 
 /**

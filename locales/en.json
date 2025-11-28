@@ -1,8 +1,7 @@
-
 {
   "sidebar": {
     "title": "Analytics Builder",
-    "dashboards": "My Dashboards",
+    "dashboards": "Dashboard",
     "queryEditor": "Query Editor",
     "settings": "Settings",
     "envVars": "Information",
@@ -34,8 +33,8 @@
     "newDashboardPrompt": "Enter the name for the new dashboard:",
     "deleteConfirm": "Are you sure you want to delete the \"{name}\" dashboard? All associated cards and variables will be lost.",
     "noDashboardsTitle": "No Dashboards Created",
-    "noDashboardsMessage": "Click the search button to create your first dashboard.",
-    "defaultNamePattern": "Unnamed {index}",
+    "noDashboardsMessage": "Create a new dashboard to get started.",
+    "defaultNamePattern": "Dashboard {index}",
     "syncChanges": "Sync Changes",
     "addModalTitle": "Create New Dashboard",
     "deleteModalTitle": "Delete Dashboard",

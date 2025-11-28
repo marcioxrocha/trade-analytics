@@ -1,4 +1,4 @@
-import { imports } from '@/services/configService';
+import { imports } from '../services/configService';
 import { QueryRequest, QueryResult, RequestContext, ApiConfig } from '../types';
 import { IDatabaseDriver } from './IDatabaseDriver';
 

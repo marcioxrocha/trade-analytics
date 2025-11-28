@@ -1,8 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { ChartCardData, DataSource, Dashboard, AppContextType, Variable, DashboardFormattingSettings, WhiteLabelSettings, SaveStatus, ExportData, DeletionTombstone, DeletionEntityType, AllConfigs, AppSettings } from '../types';
-import { DATA_SOURCES_KEY, WHITE_LABEL_KEY, DEFAULT_BRAND_COLOR, APP_SETTINGS_KEY, LAST_ACTIVE_DASHBOARD_ID_KEY, DASHBOARD_CONFIG_PREFIX, DASHBOARD_CARDS_PREFIX, DASHBOARD_VARIABLES_PREFIX } from '../constants';
-import { setConfig, deleteConfig, getAllConfigs, getLocalTombstones, setLocalTombstones, getConfig, setConfigLocal } from '../services/configService';
+import { DATA_SOURCES_KEY, WHITE_LABEL_KEY, DEFAULT_BRAND_COLOR, APP_SETTINGS_KEY, LAST_ACTIVE_DASHBOARD_ID_KEY, DASHBOARD_CONFIG_PREFIX, DASHBOARD_CARDS_PREFIX, DASHBOARD_VARIABLES_PREFIX, DASHBOARD_ORDER_KEY } from '../constants';
+import { setConfig, deleteConfig, getAllConfigs, getLocalTombstones, setLocalTombstones, getConfig, setConfigLocal, getConfigLocal } from '../services/configService';
 import { useLanguage } from './LanguageContext';
 import { DEFAULT_FORMATTING_SETTINGS } from '../services/formattingService';
 import { useApi } from './ApiContext';
@@ -62,11 +62,30 @@ export const AppProvider: React.FC<AppProviderProps> = ({
       setWhiteLabelSettings(serverState.whiteLabelSettings || { brandColor: DEFAULT_BRAND_COLOR, lastModified: now });
       setAppSettings(serverState.appSettings || { autoSave: false, lastModified: now });
       
-      const finalDashboards: Dashboard[] = (serverState.dashboards || []).map(d => ({
+      let finalDashboards: Dashboard[] = (serverState.dashboards || []).map(d => ({
         ...d,
         formattingSettings: d.formattingSettings || DEFAULT_FORMATTING_SETTINGS,
         saveStatus: 'idle',
       }));
+
+      // Apply Local Order Preference
+      const localOrder = await getConfigLocal<string[]>(DASHBOARD_ORDER_KEY);
+      if (localOrder && localOrder.length > 0) {
+          const dashboardMap = new Map(finalDashboards.map(d => [d.id, d]));
+          const sortedDashboards: Dashboard[] = [];
+          
+          localOrder.forEach(id => {
+              const dash = dashboardMap.get(id);
+              if (dash) {
+                  sortedDashboards.push(dash);
+                  dashboardMap.delete(id);
+              }
+          });
+          
+          // Append any remaining dashboards (newly created or synced from elsewhere)
+          sortedDashboards.push(...Array.from(dashboardMap.values()));
+          finalDashboards = sortedDashboards;
+      }
 
       setDashboards(finalDashboards);
       setDashboardCards(serverState.cards || []);
@@ -74,10 +93,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({
       setDeletionTombstones(await getLocalTombstones()); // Load pending deletions
       
       if (finalDashboards.length > 0) {
-        const lastActiveId = await getConfig<string>(LAST_ACTIVE_DASHBOARD_ID_KEY, apiConfig);
+        // Load active dashboard ID from local storage (IndexedDB)
+        const lastActiveId = await getConfigLocal<string>(LAST_ACTIVE_DASHBOARD_ID_KEY);
         const lastActiveDashboardExists = lastActiveId ? finalDashboards.some(d => d.id === lastActiveId) : false;
         
-        if (lastActiveDashboardExists) {
+        if (lastActiveDashboardExists && lastActiveId) {
             setActiveDashboardId(lastActiveId);
         } else {
             setActiveDashboardId(finalDashboards[0].id);
@@ -105,6 +125,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({
         };
         setDashboards([defaultDashboard]);
         setActiveDashboardId(defaultDashboard.id);
+        // Persist order for the new default dashboard locally
+        setConfigLocal(DASHBOARD_ORDER_KEY, [defaultDashboard.id]);
     }
   }, [isLoading, dashboards, t, isLangReady]);
 
@@ -112,7 +134,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     useEffect(() => {
         const saveLastActive = async () => {
             if (!isLoading && activeDashboardId) {
-                // FIX: Removed extra `apiConfig` argument. `setConfigLocal` only takes key and value.
+                // Ensure we use the Local variant to enforce "persisted but only locally"
                 await setConfigLocal(LAST_ACTIVE_DASHBOARD_ID_KEY, activeDashboardId);
             }
         };
@@ -179,7 +201,25 @@ export const AppProvider: React.FC<AppProviderProps> = ({
         finalState.dataSources = mergeArray(dataSources, serverState.dataSources, 'dataSource');
         finalState.whiteLabelSettings = mergeObject(whiteLabelSettings, serverState.whiteLabelSettings);
         finalState.appSettings = mergeObject(appSettings, serverState.appSettings);
-        finalState.dashboards = mergeArray(dashboards, serverState.dashboards, 'dashboard');
+        
+        // Merge dashboards, then re-apply local order
+        let mergedDashboards = mergeArray(dashboards, serverState.dashboards, 'dashboard');
+        const localOrder = await getConfigLocal<string[]>(DASHBOARD_ORDER_KEY);
+        if (localOrder && localOrder.length > 0) {
+             const dashboardMap = new Map(mergedDashboards.map(d => [d.id, d]));
+             const sortedDashboards: Dashboard[] = [];
+             
+             localOrder.forEach(id => {
+                 const dash = dashboardMap.get(id);
+                 if (dash) {
+                     sortedDashboards.push(dash);
+                     dashboardMap.delete(id);
+                 }
+             });
+             sortedDashboards.push(...Array.from(dashboardMap.values()));
+             mergedDashboards = sortedDashboards;
+        }
+        finalState.dashboards = mergedDashboards;
         
         const allCards: ChartCardData[] = [];
         const allVariables: Variable[] = [];
@@ -288,7 +328,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     setSettingsSaveStatus('unsaved');
   }, []);
 
-  const addDashboard = useCallback((name: string) => {
+  const addDashboard = useCallback(async (name: string) => {
     const now = new Date().toISOString();
     const newDashboard: Dashboard = { 
         name, 
@@ -297,7 +337,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({
         saveStatus: 'unsaved',
         lastModified: now,
     };
-    setDashboards(prev => [...prev, newDashboard]);
+    
+    // Update state and active ID
+    setDashboards(prev => {
+        const newDashboards = [...prev, newDashboard];
+        // Persist new order locally
+        const newOrder = newDashboards.map(d => d.id);
+        setConfigLocal(DASHBOARD_ORDER_KEY, newOrder);
+        return newDashboards;
+    });
     setActiveDashboardId(newDashboard.id);
   }, []);
 
@@ -333,7 +381,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     const originalVariables = variables.filter(v => v.dashboardId === dashboardId);
     const newVariables = originalVariables.map(variable => ({ ...variable, id: crypto.randomUUID(), dashboardId: newDashboard.id, lastModified: now }));
 
-    setDashboards(prev => [...prev, newDashboard]);
+    setDashboards(prev => {
+        const newDashboards = [...prev, newDashboard];
+        // Persist new order locally
+        const newOrder = newDashboards.map(d => d.id);
+        setConfigLocal(DASHBOARD_ORDER_KEY, newOrder);
+        return newDashboards;
+    });
     setDashboardCards(prev => [...prev, ...newCards]);
     setVariables(prev => [...prev, ...newVariables]);
     setActiveDashboardId(newDashboard.id);
@@ -347,13 +401,27 @@ export const AppProvider: React.FC<AppProviderProps> = ({
         if (activeDashboardId === id) {
           const newActiveId = updatedDashboards[0]?.id || null;
           setActiveDashboardId(newActiveId);
-          if (!newActiveId) {
-              // No need to interact with localStorage directly anymore
-          }
         }
+        
+        // Update local order
+        const newOrder = updatedDashboards.map(d => d.id);
+        setConfigLocal(DASHBOARD_ORDER_KEY, newOrder);
+        
         return updatedDashboards;
     });
   }, [activeDashboardId]);
+
+  const reorderDashboards = useCallback(async (orderedIds: string[]) => {
+    setDashboards(prev => {
+        const map = new Map(prev.map(d => [d.id, d]));
+        const newOrder = orderedIds.map(id => map.get(id)).filter((d): d is Dashboard => !!d);
+        // Append any dashboards that might be missing from orderedIds (safety)
+        const remaining = prev.filter(d => !orderedIds.includes(d.id));
+        return [...newOrder, ...remaining];
+    });
+    // Save order strictly locally. Do NOT set 'unsaved' status to avoid server sync trigger.
+    await setConfigLocal(DASHBOARD_ORDER_KEY, orderedIds);
+  }, []);
 
   const updateDashboardName = useCallback((id: string, newName: string) => {
     const now = new Date().toISOString();
@@ -625,8 +693,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({
         }
     });
     
+    // Update state
+    setDashboards(prev => {
+        const updatedDashboards = [...prev, ...newDashboards];
+        const newOrder = updatedDashboards.map(d => d.id);
+        setConfigLocal(DASHBOARD_ORDER_KEY, newOrder);
+        return updatedDashboards;
+    });
     setDataSources(prev => [...prev, ...newDataSources]);
-    setDashboards(prev => [...prev, ...newDashboards]);
     setDashboardCards(prev => [...prev, ...newCards]);
     setVariables(prev => [...prev, ...newVariables]);
     setSettingsSaveStatus('unsaved');
@@ -707,6 +781,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     addDashboard,
     duplicateDashboard,
     removeDashboard,
+    reorderDashboards,
     setActiveDashboardId: memoizedSetActiveDashboardId,
     updateDashboardName,
     updateActiveDashboardSettings,
@@ -741,7 +816,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     showInfoScreen,
   }), [
     dataSources, dashboards, variables, activeDashboardId, dashboardCards, whiteLabelSettings, appSettings,
-    addDataSource, updateDataSource, removeDataSource, addDashboard, duplicateDashboard, removeDashboard, 
+    addDataSource, updateDataSource, removeDataSource, addDashboard, duplicateDashboard, removeDashboard, reorderDashboards,
     memoizedSetActiveDashboardId, updateDashboardName, updateActiveDashboardSettings, updateActiveDashboardScriptLibrary, updateWhiteLabelSettings, addCard, 
     cloneCard, updateCard, removeCard, reorderDashboardCards, addVariable, updateVariable, removeVariable,
     updateAllVariables, exportDashboards, importDashboards, exportDataSources, importDataSources, isLoading, settingsSaveStatus, syncAllChanges, toggleAutoSave, formattingVersion,

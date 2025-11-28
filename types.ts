@@ -160,6 +160,7 @@ export interface AppContextType {
   addDashboard: (name: string) => void;
   duplicateDashboard: (dashboardId: string, newName: string) => void;
   removeDashboard: (id: string) => void;
+  reorderDashboards: (orderedIds: string[]) => void;
   setActiveDashboardId: (id: string) => void;
   updateDashboardName: (id: string, newName: string) => void;
   updateActiveDashboardSettings: (settings: DashboardFormattingSettings) => void;

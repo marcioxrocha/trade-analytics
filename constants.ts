@@ -3,6 +3,7 @@ export const DATA_SOURCES_KEY = 'dataSources';
 export const WHITE_LABEL_KEY = 'whiteLabelSettings';
 export const APP_SETTINGS_KEY = 'appSettings';
 export const LAST_ACTIVE_DASHBOARD_ID_KEY = 'analytics_builder_last_active_dashboard';
+export const DASHBOARD_ORDER_KEY = 'analytics_builder_dashboard_order';
 
 // Prefixes for granular configuration keys
 export const DASHBOARD_CONFIG_PREFIX = 'dashboard:';
