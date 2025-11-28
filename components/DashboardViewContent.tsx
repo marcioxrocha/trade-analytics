@@ -547,7 +547,7 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
             )}
 
             {/* MAIN CONTENT AREA */}
-            <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-auto">
+            <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-auto custom-scrollbar">
                 {currentView === 'dashboard' && <DashboardGrid onEditCard={handleEditCard} onAddCard={handleAddCard} onAddNewDashboard={handleAddNewDashboard} department={department} owner={owner} />}
                 {currentView === 'query-editor' && <SqlEditorView editingCardId={editingCardId} onFinishEditing={handleFinishEditing} department={department} owner={owner} />}
                 {currentView === 'settings' && <SettingsView />}
