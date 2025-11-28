@@ -505,24 +505,24 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
         )}
         <div className="absolute top-3 right-3 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
             {onExport && card.type !== ChartType.KPI && !error && !isLoading && !isSpacer && (
-              <button onClick={onExport} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 hover:text-white" aria-label={t('chartCard.exportCsvLabel')}>
+              <button onClick={onExport} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-500 hover:text-white" aria-label={t('chartCard.exportCsvLabel')}>
                   <Icon name="export" className="w-4 h-4" />
               </button>
             )}
             {allowDashboardManagement && (
                 <>
                     {onClone && (
-                        <button onClick={() => onClone(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-green-500 hover:text-white" aria-label={t('chartCard.cloneCardLabel')}>
+                        <button onClick={() => onClone(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 dark:hover:bg-green-500 hover:bg-green-500 hover:text-white" aria-label={t('chartCard.cloneCardLabel')}>
                             <Icon name="save_as" className="w-4 h-4" />
                         </button>
                     )}
                     {onEdit && (
-                        <button onClick={() => onEdit(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-yellow-500 hover:text-white" aria-label={t('chartCard.editCardLabel')}>
+                        <button onClick={() => onEdit(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 dark:hover:bg-yellow-500 hover:bg-yellow-500 hover:text-white" aria-label={t('chartCard.editCardLabel')}>
                             <Icon name="edit" className="w-4 h-4" />
                         </button>
                     )}
                     {onRemove && (
-                        <button onClick={() => onRemove(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-red-500 hover:text-white" aria-label={t('chartCard.removeCardLabel')}>
+                        <button onClick={() => onRemove(card.id)} className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 dark:hover:bg-red-500 hover:bg-red-500 hover:text-white" aria-label={t('chartCard.removeCardLabel')}>
                             <Icon name="close" className="w-4 h-4" />
                         </button>
                     )}
