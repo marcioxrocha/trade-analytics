@@ -360,6 +360,25 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
             opacity: 0.5;
             background-color: rgba(229, 231, 235, 0.5); /* gray-200 with opacity */
         }
+        /* Custom Scrollbar for Tabs */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 4px; /* Thin horizontal scrollbar */
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(156, 163, 175, 0.5); /* gray-400 equivalent with opacity */
+            border-radius: 20px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(107, 114, 128, 0.8); /* gray-500 equivalent */
+        }
+        /* Firefox fallback */
+        .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+        }
     `, [whiteLabelSettings.brandColor]);
     
     const isReadOnly = !allowDashboardManagement && !allowDataSourceManagement && !showInfoScreen;
@@ -373,7 +392,7 @@ const DashboardViewContent: React.FC<DashboardViewContentProps> = ({ instanceKey
                 <div className="flex flex-col bg-white dark:bg-gray-800 shadow-md z-[100]">
                     <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
                         {/* Tabs Container */}
-                        <div className="flex-1 overflow-x-auto flex items-end no-scrollbar pl-2">
+                        <div className="flex-1 overflow-x-auto flex items-end custom-scrollbar pl-2">
                             {dashboards.map(dashboard => {
                                 const isActive = dashboard.id === activeDashboardId;
                                 const isEditing = editingTabId === dashboard.id;
