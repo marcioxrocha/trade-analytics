@@ -129,7 +129,7 @@ const AuthFlow: React.FC = () => {
                 urlToVerify = urlToVerify.replace('http://', 'https://');
               }
 
-              const response = await fetch(`${urlToVerify}?email=${encodeURIComponent(currentUser.email!)}`);
+              const response = await fetch(`${urlToVerify}?email=${encodeURIComponent(currentUser.email!)}&_t=${new Date().getTime()}`);
               if (response.ok) { // Status 200-299
                 setUser(currentUser);
                 setVerificationStatus('verified');
