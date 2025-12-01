@@ -39,7 +39,7 @@ const PostProcessingEditor: React.FC<PostProcessingEditorProps> = ({
             </div>
 
             {show && (
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 mb-6 flex flex-col h-80 min-h-[16rem] resize-y overflow-auto">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 mb-6 flex flex-col h-90 min-h-[20rem] resize-y overflow-auto">
                     <h3 className="text-lg font-bold flex-shrink-0">{t('queryEditor.postProcessing.title')}</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 flex-shrink-0" dangerouslySetInnerHTML={{ __html: t('queryEditor.postProcessing.description') }} />
                     <div className="flex-grow min-h-0">

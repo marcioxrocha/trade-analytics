@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import {
-  BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
+  BarChart, Bar, Cell, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts';
 import { ChartCardData, ChartType, DashboardFormattingSettings, AggregationType } from '../types';
 import { DEFAULT_BRAND_COLOR, CHART_COLORS_PALETTE } from '../constants';
@@ -136,7 +136,14 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, formattingSettings, onRemov
                 <BarChart data={processedData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#9ca3af" strokeOpacity={0.4} />
                 {/* Render Bar first so it stays behind axis lines */}
-                <Bar dataKey={card.dataKey} fill={brandColor} />
+                <Bar dataKey={card.dataKey} fill={brandColor}>
+                    {processedData.map((entry, index) => {
+                        const value = Number(entry[card.dataKey]);
+                        // Red for negative, Green for positive
+                        const color = !isNaN(value) && value < 0 ? '#ef4444' : '#10b981';
+                        return <Cell key={`cell-${index}`} fill={color} />;
+                    })}
+                </Bar>
                 {/* Reference line creates a solid baseline on top of bar bottoms */}
                 <ReferenceLine y={0} stroke="#6b7280" strokeWidth={1} />
                 <XAxis 
