@@ -128,10 +128,6 @@ export const substituteVariablesInQuery = (sql: string, variables: Variable[], l
         return match; // Return the original placeholder if the variable is not found.
     });
 
-    finalSql = finalSql.replace(/\{\{([^\}]+)\}\}/g, (match, expression) => {
-        return match.replaceAll('{{', '').replaceAll('}}', ''); // Return the original placeholder if the variable is not found.
-    });    
-
     return finalSql;
 }
 
