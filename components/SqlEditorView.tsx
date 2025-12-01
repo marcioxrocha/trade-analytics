@@ -195,7 +195,15 @@ const SqlEditorView: React.FC<SqlEditorViewProps> = ({ editingCardId, onFinishEd
 
                 const finalQuery = substituteVariablesInQuery(q.query, activeDashboardVariables, activeDashboardScriptLibrary);
                 const driver = getDriver(dataSource);
-                return await driver.executeQuery({ dataSource, query: finalQuery }, apiConfig, { department, owner });
+
+                const context = { department, owner };
+                for(let item of activeDashboardVariables??[]) {
+                    try {
+                        context[item.name] = item.isExpression ? JSON.parse(item.value) : item.value;
+                    } catch(e) {}
+                }
+
+                return await driver.executeQuery({ dataSource, query: finalQuery }, apiConfig, context);
             }));
 
             setAllResults(results);

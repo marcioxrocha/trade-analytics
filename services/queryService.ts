@@ -109,7 +109,8 @@ export const substituteVariablesInQuery = (sql: string, variables: Variable[], l
     const resolvedValues = resolveAllVariables(variables, libraryScript);
 //ALTERACAO MARCIO    
     //finalSql = finalSql.replace(/\{\{([a-zA-Z0-9_().\s'"]+)\}\}/g, (match, expression) => {
-    finalSql = finalSql.replace(/\{\{([^\}]+)\}\}/g, (match, expression) => {
+    //finalSql = finalSql.replace(/\{\{([^\}]+)\}\}/g, (match, expression) => {
+    finalSql = finalSql.replace(/\{\{([\s\S]*?)\}\}/g, (match, expression) => {
         // Now, we treat the content inside {{...}} as a potential expression itself,
         // which could be a simple variable name or a function call from the library.
         const evaluatedValue = evaluateExpression(expression, resolvedValues, libraryScript);
@@ -126,6 +127,10 @@ export const substituteVariablesInQuery = (sql: string, variables: Variable[], l
         console.warn(`Variable or expression {{${expression}}} could not be resolved.`);
         return match; // Return the original placeholder if the variable is not found.
     });
+
+    finalSql = finalSql.replace(/\{\{([^\}]+)\}\}/g, (match, expression) => {
+        return match.replaceAll('{{', '').replaceAll('}}', ''); // Return the original placeholder if the variable is not found.
+    });    
 
     return finalSql;
 }

@@ -109,11 +109,18 @@ export const exportToExcel = async ({ card, dataSources, variables, apiConfig, f
             const unlimitedQuery = removeSqlLimits(q.query);
             const finalQuery = substituteVariablesInQuery(unlimitedQuery, variables, scriptLibrary);
 
+            const context = { department, owner };
+            for(let item of variables??[]) {
+                try {
+                    context[item.name] = item.isExpression ? JSON.parse(item.value) : item.value;
+                } catch(e) {}
+            }            
+
             const driver = getDriver(dataSource);
             return await driver.executeQuery({
                 dataSource,
                 query: finalQuery,
-            }, apiConfig, { department, owner });
+            }, apiConfig, context);
         }));
     } catch (e) {
         throw new Error(`Failed to execute query for export: ${(e as Error).message}`);

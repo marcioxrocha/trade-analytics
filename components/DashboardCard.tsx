@@ -102,7 +102,15 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
             
             const driver = getDriver(dataSource);
             const finalQuery = substituteVariablesInQuery(q.query, cardVariables, scriptLibrary);
-            return await driver.executeQuery({ dataSource, query: finalQuery }, apiConfig, { department, owner });
+
+            const context = { department, owner };
+            for(let item of cardVariables??[]) {
+              try {
+                context[item.name] = item.isExpression ? JSON.parse(item.value) : item.value;
+              } catch(e) {}
+            }
+
+            return await driver.executeQuery({ dataSource, query: finalQuery }, apiConfig, context);
         }));
 
         // Prepare data for post-processing
