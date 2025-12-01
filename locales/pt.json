@@ -220,6 +220,13 @@
     "noParams": "Nenhum parâmetro definido.",
     "body": "Corpo da Requisição (JSON)"
   },
+  "codeEditor": {
+    "find": "Buscar",
+    "findNext": "Próximo",
+    "close": "Fechar",
+    "syncConfirm": "Deseja sincronizar todas as alterações com o servidor agora?",
+    "syncTitle": "Sincronizar"
+  },
   "settings": {
     "title": "Configurações",
     "permissions": "Permissões",

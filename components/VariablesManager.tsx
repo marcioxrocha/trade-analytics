@@ -3,6 +3,7 @@ import { Variable, VariableOption } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import Icon from './Icon';
 import { buildVariableContext, resolveVariableValue } from '../services/queryService';
+import CodeEditor from './CodeEditor';
 
 interface VariablesManagerProps {
     dashboardId: string;
@@ -17,8 +18,11 @@ const VariablesManager: React.FC<VariablesManagerProps> = ({ dashboardId, variab
     const [editingVariable, setEditingVariable] = useState<Variable | null>(null);
     const [isExpression, setIsExpression] = useState(false);
     const [currentOptions, setCurrentOptions] = useState<VariableOption[]>([]);
+    
+    // Controlled inputs for the form
+    const [formName, setFormName] = useState('');
+    const [formValue, setFormValue] = useState('');
     const varNameRef = useRef<HTMLInputElement>(null);
-    const varValueRef = useRef<HTMLInputElement>(null);
 
     const fixedVariables = useMemo(() => {
         const now = new Date().toISOString();
@@ -35,21 +39,19 @@ const VariablesManager: React.FC<VariablesManagerProps> = ({ dashboardId, variab
     const variableContext = useMemo(() => buildVariableContext(variables), [variables]);
 
     useEffect(() => {
-        if (varNameRef.current) {
-            varNameRef.current.value = editingVariable?.name || '';
-        }
-        if (varValueRef.current) {
-            varValueRef.current.value = editingVariable?.value || '';
-        }
+        setFormName(editingVariable?.name || '');
+        setFormValue(editingVariable?.value || '');
         setIsExpression(editingVariable?.isExpression || false);
         setCurrentOptions(editingVariable?.options || []);
-        varNameRef.current?.focus();
+        if (editingVariable) {
+            varNameRef.current?.focus();
+        }
     }, [editingVariable]);
 
 
     const handleVariableSubmit = () => {
-        const name = varNameRef.current?.value.trim();
-        const value = varValueRef.current?.value.trim();
+        const name = formName.trim();
+        const value = formValue.trim(); // CodeEditor might leave trailing newlines but trim is usually safe for variables unless strict formatting needed
         const now = new Date().toISOString();
 
         if (!name) return;
@@ -67,8 +69,8 @@ const VariablesManager: React.FC<VariablesManagerProps> = ({ dashboardId, variab
         } else {
             const newVar: Variable = { id: crypto.randomUUID(), dashboardId, name, value: finalValue, isExpression, showOnDashboard: true, options: currentOptions.length > 0 ? currentOptions : undefined, lastModified: now };
             onVariablesChange([...variables, newVar]);
-            if(varNameRef.current) varNameRef.current.value = '';
-            if(varValueRef.current) varValueRef.current.value = '';
+            setFormName('');
+            setFormValue('');
             setIsExpression(false);
             setCurrentOptions([]);
             varNameRef.current?.focus();
@@ -77,12 +79,16 @@ const VariablesManager: React.FC<VariablesManagerProps> = ({ dashboardId, variab
     
     const handleClearForm = () => {
         setEditingVariable(null);
+        setFormName('');
+        setFormValue('');
+        setIsExpression(false);
+        setCurrentOptions([]);
     };
     
     const handleRemove = (id: string) => {
         onVariablesChange(variables.filter(v => v.id !== id));
         if (editingVariable && editingVariable.id === id) {
-            setEditingVariable(null);
+            handleClearForm();
         }
     }
     
@@ -103,19 +109,59 @@ const VariablesManager: React.FC<VariablesManagerProps> = ({ dashboardId, variab
         setCurrentOptions(prev => prev.filter((_, i) => i !== index));
     };
 
+    // Helper to format values for display, including Objects and Functions
+    const formatPreview = (value: any): string => {
+        if (typeof value === 'function') return 'ƒ()';
+        if (typeof value === 'object' && value !== null) {
+            try {
+                return JSON.stringify(value, (key, val) => {
+                    if (typeof val === 'function') return 'ƒ()';
+                    return val;
+                });
+            } catch(e) { return String(value); }
+        }
+        return String(value);
+    };
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 min-h-[400px]">
             {/* Left Form Column */}
             <div className="lg:col-span-2">
-                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-3 h-full">
+                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-3 h-full flex flex-col">
                     <h4 className="font-semibold">{editingVariable ? t('dashboard.variables.editTitle') : t('dashboard.variables.addTitle')}</h4>
                     <div>
                         <label className="text-sm font-medium">{t('dashboard.variables.name')}</label>
-                        <input ref={varNameRef} type="text" placeholder="e.g. sales_target" className="w-full mt-1 p-2 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-600" />
+                        <input 
+                            ref={varNameRef} 
+                            type="text" 
+                            placeholder="e.g. sales_target" 
+                            className="w-full mt-1 p-2 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-600"
+                            value={formName}
+                            onChange={e => setFormName(e.target.value)}
+                        />
                     </div>
-                    <div>
+                    <div className="flex-grow flex flex-col">
                         <label className="text-sm font-medium">{t('dashboard.variables.value')}</label>
-                        <input ref={varValueRef} type="text" placeholder="e.g. 500 or new Date().getFullYear()" className="w-full mt-1 p-2 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-600" />
+                        {isExpression ? (
+                            <div className="flex-grow mt-1">
+                                <CodeEditor
+                                    value={formValue}
+                                    onChange={setFormValue}
+                                    language="javascript"
+                                    placeholder="e.g. return new Date().getFullYear();"
+                                    minHeight="12rem"
+                                    className="h-full"
+                                />
+                            </div>
+                        ) : (
+                            <input 
+                                type="text" 
+                                placeholder="e.g. 500" 
+                                className="w-full mt-1 p-2 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-600" 
+                                value={formValue}
+                                onChange={e => setFormValue(e.target.value)}
+                            />
+                        )}
                         <div className="flex items-center mt-2">
                             <input
                                 id="is-expression-checkbox"
@@ -130,25 +176,27 @@ const VariablesManager: React.FC<VariablesManagerProps> = ({ dashboardId, variab
                         </div>
                     </div>
 
-                    <div className="pt-2 border-t dark:border-gray-600/50">
-                        <h5 className="font-semibold text-sm">{t('dashboard.variables.options')}</h5>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{t('dashboard.variables.optionsDesc')}</p>
-                        <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
-                            {currentOptions.map((opt, index) => (
-                                <div key={index} className="flex items-center gap-2">
-                                    <input type="text" placeholder={t('dashboard.variables.label')} value={opt.label} onChange={(e) => handleUpdateOption(index, 'label', e.target.value)} className="flex-1 p-2 border rounded-md text-sm bg-white dark:bg-gray-800 dark:border-gray-600" />
-                                    <input type="text" placeholder={t('dashboard.variables.value')} value={opt.value} onChange={(e) => handleUpdateOption(index, 'value', e.target.value)} className="flex-1 p-2 border rounded-md text-sm bg-white dark:bg-gray-800 dark:border-gray-600" />
-                                    <button onClick={() => handleRemoveOption(index)} className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full">
-                                        <Icon name="close" className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            ))}
+                    {!isExpression && (
+                        <div className="pt-2 border-t dark:border-gray-600/50">
+                            <h5 className="font-semibold text-sm">{t('dashboard.variables.options')}</h5>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{t('dashboard.variables.optionsDesc')}</p>
+                            <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                                {currentOptions.map((opt, index) => (
+                                    <div key={index} className="flex items-center gap-2">
+                                        <input type="text" placeholder={t('dashboard.variables.label')} value={opt.label} onChange={(e) => handleUpdateOption(index, 'label', e.target.value)} className="flex-1 p-2 border rounded-md text-sm bg-white dark:bg-gray-800 dark:border-gray-600" />
+                                        <input type="text" placeholder={t('dashboard.variables.value')} value={opt.value} onChange={(e) => handleUpdateOption(index, 'value', e.target.value)} className="flex-1 p-2 border rounded-md text-sm bg-white dark:bg-gray-800 dark:border-gray-600" />
+                                        <button onClick={() => handleRemoveOption(index)} className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full">
+                                            <Icon name="close" className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                            <button type="button" onClick={handleAddOption} className="mt-2 flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">
+                                <Icon name="add" className="w-4 h-4" />
+                                {t('dashboard.variables.addOption')}
+                            </button>
                         </div>
-                        <button type="button" onClick={handleAddOption} className="mt-2 flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">
-                            <Icon name="add" className="w-4 h-4" />
-                            {t('dashboard.variables.addOption')}
-                        </button>
-                    </div>
+                    )}
 
                     <div className="flex gap-2 pt-2 border-t dark:border-gray-600/50">
                     {editingVariable ? (
@@ -189,7 +237,7 @@ const VariablesManager: React.FC<VariablesManagerProps> = ({ dashboardId, variab
                                     </p>
                                     {v.isExpression && (
                                         <p className="font-mono text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                            ↳ <span className="italic text-indigo-500 dark:text-indigo-400">preview:</span> <span className="text-green-600 dark:text-green-400 font-semibold">{String(resolvedValue)}</span>
+                                            ↳ <span className="italic text-indigo-500 dark:text-indigo-400">preview:</span> <span className="text-green-600 dark:text-green-400 font-semibold" title={formatPreview(resolvedValue)}>{formatPreview(resolvedValue)}</span>
                                         </p>
                                     )}
                                 </div>

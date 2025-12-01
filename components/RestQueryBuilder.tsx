@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import Icon from './Icon';
+import CodeEditor from './CodeEditor';
 
 interface KeyValue {
     key: string;
@@ -80,10 +80,10 @@ const RestQueryBuilder: React.FC<RestQueryBuilderProps> = ({ configJson, onChang
     };
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg flex flex-col h-[32rem] overflow-auto">
-            <div className="p-4 space-y-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg flex flex-col h-[40rem] overflow-auto">
+            <div className="p-4 space-y-6 flex-grow flex flex-col">
                 {/* Method and Endpoint */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-4 gap-4 flex-shrink-0">
                     <div className="col-span-1">
                         <label className="block text-sm font-medium mb-1">{t('restBuilder.method')}</label>
                         <select
@@ -111,7 +111,7 @@ const RestQueryBuilder: React.FC<RestQueryBuilderProps> = ({ configJson, onChang
                 </div>
 
                 {/* Headers */}
-                <div>
+                <div className="flex-shrink-0">
                     <div className="flex justify-between items-center mb-2">
                         <label className="block text-sm font-medium">{t('restBuilder.headers')}</label>
                         <button onClick={() => addKeyValue('headers')} type="button" className="text-xs text-indigo-600 dark:text-indigo-400 flex items-center hover:underline">
@@ -143,7 +143,7 @@ const RestQueryBuilder: React.FC<RestQueryBuilderProps> = ({ configJson, onChang
                 </div>
 
                 {/* Query Params */}
-                <div>
+                <div className="flex-shrink-0">
                     <div className="flex justify-between items-center mb-2">
                         <label className="block text-sm font-medium">{t('restBuilder.params')}</label>
                         <button onClick={() => addKeyValue('params')} type="button" className="text-xs text-indigo-600 dark:text-indigo-400 flex items-center hover:underline">
@@ -175,14 +175,17 @@ const RestQueryBuilder: React.FC<RestQueryBuilderProps> = ({ configJson, onChang
                 </div>
 
                 {/* Body */}
-                <div>
+                <div className="flex-grow flex flex-col min-h-[200px]">
                     <label className="block text-sm font-medium mb-1">{t('restBuilder.body')}</label>
-                    <textarea
-                        value={config.body}
-                        onChange={(e) => handleFieldChange('body', e.target.value)}
-                        className="w-full h-32 p-2 font-mono text-sm border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder='{"key": "value"}'
-                    />
+                    <div className="flex-grow">
+                        <CodeEditor 
+                            value={config.body}
+                            onChange={(newValue) => handleFieldChange('body', newValue)}
+                            language="javascript" // Using JS highlighter as close enough for JSON
+                            placeholder='{"key": "value"}'
+                            className="h-full"
+                        />
+                    </div>
                 </div>
             </div>
         </div>

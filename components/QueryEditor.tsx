@@ -1,11 +1,10 @@
-
-import React, { useRef, useMemo, useEffect, useState } from 'react';
-import { DataSource, QueryDefinition, QueryLanguage } from '../types';
+import React, { useState, useEffect } from 'react';
+import { DataSource, QueryDefinition } from '../types';
 import Icon from './Icon';
 import { useLanguage } from '../contexts/LanguageContext';
-import { highlight } from '../services/syntaxHighlighter';
 import RestQueryBuilder from './RestQueryBuilder';
 import { getLanguageForDataSource } from '../utils/queryUtils';
+import CodeEditor from './CodeEditor';
 
 interface QueryEditorProps {
     queries: QueryDefinition[];
@@ -26,13 +25,10 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
 }) => {
     const { t } = useLanguage();
     const [activeQueryIndex, setActiveQueryIndex] = useState(0);
-    const editorRef = useRef<HTMLTextAreaElement>(null);
-    const backdropRef = useRef<HTMLPreElement>(null);
 
     const activeQuery = queries[activeQueryIndex] || queries[0];
     const activeDataSource = dataSources.find(ds => ds.id === activeQuery?.dataSourceId);
     const queryLanguage = getLanguageForDataSource(activeDataSource);
-    const highlightedQuery = useMemo(() => highlight(activeQuery?.query || '', queryLanguage), [activeQuery?.query, queryLanguage]);
     const isRestApi = activeDataSource?.type === 'REST API';
 
     // Ensure there is always at least one query
@@ -41,20 +37,6 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
             onQueriesChange([{ id: crypto.randomUUID(), dataSourceId: '', query: '' }]);
         }
     }, [queries, onQueriesChange]);
-
-    const handleScroll = () => {
-        if (backdropRef.current && editorRef.current) {
-            backdropRef.current.scrollTop = editorRef.current.scrollTop;
-            backdropRef.current.scrollLeft = editorRef.current.scrollLeft;
-        }
-    };
-
-    // Autofocus on the editor when the component mounts or active tab changes, if query is empty
-    useEffect(() => {
-        if (editorRef.current && !activeQuery?.query && !isRestApi) {
-            editorRef.current.focus();
-        }
-    }, [activeQueryIndex, isRestApi]);
 
     const handleQueryChange = (newQueryString: string) => {
         const updatedQueries = [...queries];
@@ -127,22 +109,13 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
                     {isRestApi ? (
                         <RestQueryBuilder configJson={activeQuery.query} onChange={handleQueryChange} />
                     ) : (
-                        <div className="p-4 relative flex-grow border border-gray-300 dark:border-gray-600 rounded-md m-4">
-                            <pre
-                                ref={backdropRef}
-                                className="absolute inset-0 m-0 p-3 font-mono text-sm bg-gray-50 dark:bg-gray-900 rounded-md overflow-auto whitespace-pre-wrap break-words pointer-events-none"
-                                aria-hidden="true"
-                            >
-                                <code dangerouslySetInnerHTML={{ __html: highlightedQuery + '\n' }} />
-                            </pre>
-                            <textarea
-                                ref={editorRef}
+                        <div className="flex-grow p-2">
+                            <CodeEditor 
                                 value={activeQuery.query}
-                                onChange={(e) => handleQueryChange(e.target.value)}
-                                onScroll={handleScroll}
-                                className="absolute inset-0 m-0 p-3 font-mono text-sm text-transparent bg-transparent border-transparent rounded-md caret-white focus:outline-none resize-none"
-                                spellCheck="false"
-                                aria-label="Query editor"
+                                onChange={handleQueryChange}
+                                language={queryLanguage}
+                                className="h-full"
+                                autoFocus={!activeQuery.query}
                             />
                         </div>
                     )}

@@ -1,3 +1,4 @@
+
 import { QueryResult } from '../types';
 import { imports } from './configService';
 
@@ -23,7 +24,7 @@ export function executePostProcessingScript(
     if (!script.trim()) {
         return { processedData: data, logs: [] };
     }
-    
+ 
     const moment = imports.moment;
     const logs: string[] = [];
     const customConsole = {
@@ -34,11 +35,15 @@ export function executePostProcessingScript(
             const message = args.map(arg => {
                 if (typeof arg === 'object' && arg !== null) {
                     try {
-                        return JSON.stringify(arg, null, 2);
+                        return JSON.stringify(arg, (key, val) => {
+                            if (typeof val === 'function') return 'ƒ()';
+                            return val;
+                        }, 2);
                     } catch {
                         return String(arg);
                     }
                 }
+                if (typeof arg === 'function') return 'ƒ()';
                 return String(arg);
             }).join(' ');
             logs.push(message);

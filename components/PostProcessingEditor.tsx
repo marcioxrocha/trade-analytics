@@ -1,7 +1,7 @@
-import React, { useRef, useMemo } from 'react';
+import React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { highlight } from '../services/syntaxHighlighter';
 import ErrorDisplay from './ErrorDisplay';
+import CodeEditor from './CodeEditor';
 
 interface PostProcessingEditorProps {
     script: string;
@@ -22,17 +22,6 @@ const PostProcessingEditor: React.FC<PostProcessingEditorProps> = ({
     logs,
 }) => {
     const { t } = useLanguage();
-    const editorRef = useRef<HTMLTextAreaElement>(null);
-    const backdropRef = useRef<HTMLPreElement>(null);
-
-    const highlightedScript = useMemo(() => highlight(script, 'javascript'), [script]);
-
-    const handleScroll = () => {
-        if (backdropRef.current && editorRef.current) {
-            backdropRef.current.scrollTop = editorRef.current.scrollTop;
-            backdropRef.current.scrollLeft = editorRef.current.scrollLeft;
-        }
-    };
 
     return (
         <div className="mt-4">
@@ -53,23 +42,13 @@ const PostProcessingEditor: React.FC<PostProcessingEditorProps> = ({
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 mb-6 flex flex-col h-80 min-h-[16rem] resize-y overflow-auto">
                     <h3 className="text-lg font-bold flex-shrink-0">{t('queryEditor.postProcessing.title')}</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 flex-shrink-0" dangerouslySetInnerHTML={{ __html: t('queryEditor.postProcessing.description') }} />
-                    <div className="relative flex-grow min-h-0 border border-gray-300 dark:border-gray-600 rounded-md">
-                        <pre
-                            ref={backdropRef}
-                            className="absolute inset-0 m-0 p-2 font-mono text-sm bg-gray-50 dark:bg-gray-900 rounded-md overflow-auto whitespace-pre-wrap break-words pointer-events-none"
-                            aria-hidden="true"
-                        >
-                            <code dangerouslySetInnerHTML={{ __html: highlightedScript + '\n' }} />
-                        </pre>
-                        <textarea
-                            ref={editorRef}
+                    <div className="flex-grow min-h-0">
+                        <CodeEditor 
                             value={script}
-                            onChange={(e) => onScriptChange(e.target.value)}
-                            onScroll={handleScroll}
-                            className="absolute inset-0 m-0 p-2 font-mono text-sm text-transparent bg-transparent border-transparent rounded-md caret-white focus:outline-none resize-none"
+                            onChange={onScriptChange}
+                            language="javascript"
                             placeholder="console.log(data); return data;"
-                            spellCheck="false"
-                            aria-label="Post-processing script editor"
+                            className="h-full"
                         />
                     </div>
                     {error && (

@@ -1,3 +1,4 @@
+
 import { Variable } from '../types';
 import { imports } from './configService';
 
@@ -16,18 +17,28 @@ function evaluateExpression(expression: string, context: Record<string, any>, li
     const contextKeys = Object.keys(context);
     const contextValues = Object.values(context);
     
+    // Determine if the expression is a code block or a simple expression
+    const trimmedExpr = expression.trim();
+    const hasExplicitReturn = /\breturn\b/.test(trimmedExpr);
+    
     // Combine the library and the user's expression into a single script body.
-    const scriptBody = `
-        ${libraryScript}
-        
-        return ${expression};
-    `;
+    let scriptBody = `${libraryScript}\n`;
+
+    if (hasExplicitReturn) {
+        // If the user provided a return statement, assume they wrote a full function body.
+        scriptBody += expression;
+    } else {
+        // Otherwise, treat it as an expression and return it directly.
+        // Wrapping in parentheses handles object literals: return ({ a: 1 }); vs return { a: 1 }; (which is a block)
+        scriptBody += `return (${expression});`;
+    }
 
     // Using the Function constructor is safer than eval() as it doesn't have access to the local scope.
     const func = new Function(...contextKeys, scriptBody);
     return func(...contextValues);
   } catch (error) {
-    console.error(`Error evaluating expression: "${expression}"`, error);
+    // console.error(`Error evaluating expression: "${expression}"`, error);
+    // Return the raw expression string if evaluation fails, unless it looks like a serious syntax error in intended code
     return `[EVAL_ERROR: ${(error as Error).message}]`;
   }
 }
@@ -116,17 +127,25 @@ export const substituteVariablesInQuery = (sql: string, variables: Variable[], l
         const evaluatedValue = evaluateExpression(expression, resolvedValues, libraryScript);
         
         if (typeof evaluatedValue !== 'string' || !evaluatedValue.startsWith('[EVAL_ERROR:')) {
+             // Handle objects/arrays being interpolated into SQL/Strings
+             if (typeof evaluatedValue === 'object' && evaluatedValue !== null) {
+                 return JSON.stringify(evaluatedValue);
+             }
              return String(evaluatedValue);
         }
 
         // Fallback for simple variable names if expression fails (e.g. {{my_var}} but not {{my_func()}})
         if (Object.prototype.hasOwnProperty.call(resolvedValues, expression.trim())) {
-            return String(resolvedValues[expression.trim()]);
+            const val = resolvedValues[expression.trim()];
+            if (typeof val === 'object' && val !== null) {
+                return JSON.stringify(val);
+            }
+            return String(val);
         }
         
-        console.warn(`Variable or expression {{${expression}}} could not be resolved.`);
+        // console.warn(`Variable or expression {{${expression}}} could not be resolved.`);
         return match; // Return the original placeholder if the variable is not found.
-    });
+    });   
 
     return finalSql;
 }
