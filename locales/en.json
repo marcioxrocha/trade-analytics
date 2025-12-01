@@ -223,6 +223,8 @@
   "codeEditor": {
     "find": "Find",
     "findNext": "Next",
+    "findPrev": "Previous",
+    "matchCount": "{current} of {total}",
     "close": "Close",
     "syncConfirm": "Do you want to sync all changes with the server now?",
     "syncTitle": "Sync"

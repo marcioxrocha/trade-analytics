@@ -223,6 +223,8 @@
   "codeEditor": {
     "find": "Buscar",
     "findNext": "Próximo",
+    "findPrev": "Anterior",
+    "matchCount": "{current} de {total}",
     "close": "Fechar",
     "syncConfirm": "Deseja sincronizar todas as alterações com o servidor agora?",
     "syncTitle": "Sincronizar"
