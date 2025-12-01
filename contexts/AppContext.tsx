@@ -551,6 +551,22 @@ export const AppProvider: React.FC<AppProviderProps> = ({
   const updateAllVariables = useCallback((dashboardId: string, variablesForDashboard: Variable[]) => {
     if (!dashboardId) return;
     const now = new Date().toISOString();
+
+    // Calculate which variables were removed to create tombstones
+    const currentDashboardVars = variables.filter(v => v.dashboardId === dashboardId);
+    const newVarIds = new Set(variablesForDashboard.map(v => v.id));
+    const deletedVars = currentDashboardVars.filter(v => !newVarIds.has(v.id));
+
+    if (deletedVars.length > 0) {
+        const newTombstones: DeletionTombstone[] = deletedVars.map(v => ({
+            id: v.id,
+            type: 'variable',
+            parentId: dashboardId,
+            deletedAt: now
+        }));
+        setDeletionTombstones(prev => [...prev, ...newTombstones]);
+    }
+
     const updatedVariablesWithTimestamp = variablesForDashboard.map(v => ({...v, lastModified: now }));
 
     setVariables(currentVariables => {
@@ -559,7 +575,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({
     });
 
     setDashboardUnsaved(dashboardId);
-  }, [setDashboardUnsaved]);
+  }, [variables, setDashboardUnsaved]);
 
   const exportDashboards = useCallback((dashboardIds: string[]) => {
     // Filter cards needed for export
